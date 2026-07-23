@@ -9,9 +9,10 @@ import {
 } from "discord.js";
 
 import { logger } from "../../utils/logger.js";
+import { createCampaign } from "../../utils/campaignManager.js";
 
 
-const STAFF_ROLE_ID = "PUT_STAFF_ROLE_ID_HERE";
+const STAFF_ROLE_ID = "STAFF_ROLE_ID_HERE";
 
 
 export default {
@@ -20,12 +21,12 @@ data: new SlashCommandBuilder()
 
 .setName("campaign")
 
-.setDescription("Campaign management system")
+.setDescription("Campaign management")
 
 .addSubcommand(sub =>
     sub
     .setName("create")
-    .setDescription("Create a paid editing campaign")
+    .setDescription("Create a new campaign")
 
     .addStringOption(option =>
         option
@@ -37,28 +38,28 @@ data: new SlashCommandBuilder()
     .addStringOption(option =>
         option
         .setName("client")
-        .setDescription("Client / Label")
+        .setDescription("Client name")
         .setRequired(true)
     )
 
     .addStringOption(option =>
         option
         .setName("budget")
-        .setDescription("Payment budget")
+        .setDescription("Campaign budget")
+        .setRequired(true)
+    )
+
+    .addStringOption(option =>
+        option
+        .setName("cpm")
+        .setDescription("CPM amount")
         .setRequired(true)
     )
 
     .addStringOption(option =>
         option
         .setName("deadline")
-        .setDescription("Deadline")
-        .setRequired(true)
-    )
-
-    .addStringOption(option =>
-        option
-        .setName("slots")
-        .setDescription("Editors needed")
+        .setDescription("End date")
         .setRequired(true)
     )
 
@@ -68,18 +69,18 @@ data: new SlashCommandBuilder()
         .setDescription("Campaign description")
         .setRequired(true)
     )
+
 ),
+
 
 
 async execute(interaction){
 
 
-try {
+try{
 
 
-/*
- STAFF CHECK
-*/
+// STAFF ONLY
 
 if(
 !interaction.member.roles.cache.has(STAFF_ROLE_ID)
@@ -88,7 +89,7 @@ if(
 return interaction.reply({
 
 content:
-"❌ Only staff members can create campaigns.",
+"❌ Staff only.",
 
 ephemeral:true
 
@@ -98,92 +99,40 @@ ephemeral:true
 
 
 
-/*
- GET DATA
-*/
-
-
-const name =
-interaction.options.getString("name");
-
-
-const client =
-interaction.options.getString("client");
-
-
-const budget =
-interaction.options.getString("budget");
-
-
-const deadline =
-interaction.options.getString("deadline");
-
-
-const slots =
-interaction.options.getString("slots");
-
-
-const description =
-interaction.options.getString("description");
-
-
-
-
-
-/*
- CREATE CHANNEL
-*/
-
-
-const channel =
-await interaction.guild.channels.create({
+const data={
 
 name:
-`🎬-${name}`
-.toLowerCase()
-.replace(/[^a-z0-9-]/g,"-"),
+interaction.options.getString("name"),
 
+client:
+interaction.options.getString("client"),
 
-type:
-ChannelType.GuildText,
+budget:
+interaction.options.getString("budget"),
 
+cpm:
+interaction.options.getString("cpm"),
 
-permissionOverwrites:[
+deadline:
+interaction.options.getString("deadline"),
 
-{
-id:
-interaction.guild.roles.everyone.id,
+description:
+interaction.options.getString("description")
 
-deny:[
-PermissionFlagsBits.ViewChannel
-]
-
-},
-
-
-{
-id:
-STAFF_ROLE_ID,
-
-allow:[
-PermissionFlagsBits.ViewChannel,
-PermissionFlagsBits.SendMessages,
-PermissionFlagsBits.ManageMessages
-]
-
-}
-
-]
-
-});
+};
 
 
 
 
 
-/*
- EMBED
-*/
+const campaign =
+await createCampaign(
+interaction.guild,
+data
+);
+
+
+
 
 
 const embed =
@@ -192,60 +141,40 @@ new EmbedBuilder()
 .setColor("#5865F2")
 
 .setTitle(
-`🎬 ${name}`
+`🎬 ${data.name}`
 )
 
 .setDescription(
 `
-## Campaign Information
-
-
 🎵 **Client**
-${client}
+${data.client}
 
 
 💰 **Budget**
-${budget}
+$${data.budget}
 
 
-👥 **Editors Needed**
-${slots}
+📈 **CPM**
+${data.cpm}
 
 
-📅 **Deadline**
-${deadline}
+📅 **End Date**
+${data.deadline}
 
 
 📝 **Description**
-${description}
+${data.description}
 
 
+🕒 Status
 
-## Status
-
-🟢 OPEN
-
-
-Click apply if you want to join.
+🟢 Active
 `
 )
-
-.setFooter({
-
-text:
-"United Clips Campaign System"
-
-})
 
 .setTimestamp();
 
 
-
-
-
-/*
- BUTTONS
-*/
 
 
 const row =
@@ -255,9 +184,13 @@ new ActionRowBuilder()
 
 new ButtonBuilder()
 
-.setCustomId("campaign_apply")
+.setCustomId(
+`campaign_join_${campaign.id}`
+)
 
-.setLabel("🎬 Apply")
+.setLabel(
+"🎬 Join Campaign"
+)
 
 .setStyle(
 ButtonStyle.Success
@@ -266,54 +199,32 @@ ButtonStyle.Success
 
 new ButtonBuilder()
 
-.setCustomId("campaign_submit")
+.setCustomId(
+`campaign_status_${campaign.id}`
+)
 
-.setLabel("📤 Submit Edit")
+.setLabel(
+"📊 Status"
+)
 
 .setStyle(
 ButtonStyle.Primary
-),
-
-
-new ButtonBuilder()
-
-.setCustomId("campaign_approve")
-
-.setLabel("✅ Approve")
-
-.setStyle(
-ButtonStyle.Success
-),
-
-
-new ButtonBuilder()
-
-.setCustomId("campaign_reject")
-
-.setLabel("❌ Reject")
-
-.setStyle(
-ButtonStyle.Danger
-),
-
-
-new ButtonBuilder()
-
-.setCustomId("campaign_paid")
-
-.setLabel("💰 Paid")
-
-.setStyle(
-ButtonStyle.Secondary
 )
 
 );
 
 
 
+const publicChannel =
+interaction.guild.channels.cache.find(
+c=>c.name==="active-campaigns"
+);
 
 
-await channel.send({
+
+if(publicChannel){
+
+await publicChannel.send({
 
 embeds:[
 embed
@@ -325,26 +236,18 @@ row
 
 });
 
-
-
+}
 
 
 
 await interaction.reply({
 
 content:
-`✅ Campaign created: ${channel}`,
+`✅ Campaign created: ${data.name}`,
 
 ephemeral:true
 
 });
-
-
-
-logger.info(
-`Campaign created by ${interaction.user.tag}`
-);
-
 
 
 }
@@ -352,20 +255,195 @@ logger.info(
 
 catch(error){
 
-
 logger.error(
-"Campaign error:",
+"Campaign create error:",
 error
 );
 
+}
+
+}
+
+};
+import {
+ChannelType,
+PermissionFlagsBits
+} from "discord.js";
 
 
-if(!interaction.replied){
+const campaigns = new Map();
 
-await interaction.reply({
+
+
+export async function createCampaign(
+guild,
+data
+){
+
+
+const id =
+Date.now().toString();
+
+
+
+const category =
+await guild.channels.create({
+
+name:
+`🎬 ${data.name}`,
+
+type:
+ChannelType.GuildCategory
+
+});
+
+
+
+const channels=[];
+
+
+for(
+const name of [
+"general",
+"rules",
+"resources",
+"information"
+]
+){
+
+
+const channel =
+await guild.channels.create({
+
+name:name,
+
+type:
+ChannelType.GuildText,
+
+parent:
+category.id,
+
+
+permissionOverwrites:[
+
+{
+
+id:
+guild.roles.everyone.id,
+
+deny:[
+PermissionFlagsBits.ViewChannel
+]
+
+}
+
+]
+
+});
+
+
+channels.push(channel);
+
+}
+
+
+
+campaigns.set(id,{
+
+id,
+
+...data,
+
+category:
+
+category.id,
+
+members:[],
+
+submissions:0,
+
+views:0,
+
+paid:0,
+
+approved:0
+
+});
+
+
+
+return campaigns.get(id);
+
+}
+
+
+
+export function getCampaign(id){
+
+return campaigns.get(id);
+
+}
+import {
+EmbedBuilder
+} from "discord.js";
+
+import {
+getCampaign
+} from "../utils/campaignManager.js";
+
+
+
+export default async function(
+interaction
+){
+
+
+
+const args =
+interaction.customId.split("_");
+
+
+const action =
+args[1];
+
+
+const id =
+args[2];
+
+
+
+const campaign =
+getCampaign(id);
+
+
+
+if(!campaign)
+return interaction.reply({
 
 content:
-"❌ Something went wrong creating the campaign.",
+"❌ Campaign not found.",
+
+ephemeral:true
+
+});
+
+
+
+
+
+if(action==="join"){
+
+
+if(
+campaign.members.includes(
+interaction.user.id
+)
+){
+
+return interaction.reply({
+
+content:
+"Already joined.",
 
 ephemeral:true
 
@@ -374,9 +452,89 @@ ephemeral:true
 }
 
 
-}
+campaign.members.push(
+interaction.user.id
+);
+
+
+
+return interaction.reply({
+
+content:
+"🎬 You joined this campaign!",
+
+ephemeral:true
+
+});
 
 
 }
 
-};
+
+
+
+
+if(action==="status"){
+
+
+const embed =
+new EmbedBuilder()
+
+.setTitle(
+"📊 Campaign Status"
+)
+
+.setDescription(
+`
+🎬 ${campaign.name}
+
+
+👥 Joined Editors
+
+${campaign.members.length}
+
+
+📤 Submissions
+
+${campaign.submissions}
+
+
+👀 Views
+
+${campaign.views}
+
+
+🟢 Approved
+
+${campaign.approved}
+
+
+💸 Paid Out
+
+$${campaign.paid}
+
+
+🕒 Status
+
+Active
+`
+);
+
+
+
+return interaction.reply({
+
+embeds:[
+embed
+],
+
+ephemeral:true
+
+});
+
+
+}
+
+
+
+}
