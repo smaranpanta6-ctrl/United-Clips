@@ -9,10 +9,11 @@ import {
 } from "discord.js";
 
 import { logger } from "../../utils/logger.js";
-import { createCampaign } from "../../utils/campaignManager.js";
 
 
-const STAFF_ROLE_ID = "STAFF_ROLE_ID_HERE";
+const STAFF_ROLE_ID = "PUT_STAFF_ROLE_ID_HERE";
+
+const campaigns = new Map();
 
 
 export default {
@@ -21,55 +22,48 @@ data: new SlashCommandBuilder()
 
 .setName("campaign")
 
-.setDescription("Campaign management")
+.setDescription("Campaign system")
 
 .addSubcommand(sub =>
     sub
     .setName("create")
-    .setDescription("Create a new campaign")
+    .setDescription("Create a campaign")
 
-    .addStringOption(option =>
-        option
-        .setName("name")
+    .addStringOption(o =>
+        o.setName("name")
         .setDescription("Campaign name")
         .setRequired(true)
     )
 
-    .addStringOption(option =>
-        option
-        .setName("client")
+    .addStringOption(o =>
+        o.setName("client")
         .setDescription("Client name")
         .setRequired(true)
     )
 
-    .addStringOption(option =>
-        option
-        .setName("budget")
+    .addStringOption(o =>
+        o.setName("budget")
         .setDescription("Campaign budget")
         .setRequired(true)
     )
 
-    .addStringOption(option =>
-        option
-        .setName("cpm")
-        .setDescription("CPM amount")
+    .addStringOption(o =>
+        o.setName("cpm")
+        .setDescription("CPM")
         .setRequired(true)
     )
 
-    .addStringOption(option =>
-        option
-        .setName("deadline")
+    .addStringOption(o =>
+        o.setName("deadline")
         .setDescription("End date")
         .setRequired(true)
     )
 
-    .addStringOption(option =>
-        option
-        .setName("description")
-        .setDescription("Campaign description")
+    .addStringOption(o =>
+        o.setName("description")
+        .setDescription("Description")
         .setRequired(true)
     )
-
 ),
 
 
@@ -77,59 +71,134 @@ data: new SlashCommandBuilder()
 async execute(interaction){
 
 
-try{
-
-
-// STAFF ONLY
-
 if(
 !interaction.member.roles.cache.has(STAFF_ROLE_ID)
 ){
 
 return interaction.reply({
-
-content:
-"❌ Staff only.",
-
+content:"❌ Staff only.",
 ephemeral:true
-
 });
 
 }
 
 
 
-const data={
+const name =
+interaction.options.getString("name");
 
-name:
-interaction.options.getString("name"),
+const client =
+interaction.options.getString("client");
 
-client:
-interaction.options.getString("client"),
+const budget =
+interaction.options.getString("budget");
 
-budget:
-interaction.options.getString("budget"),
+const cpm =
+interaction.options.getString("cpm");
 
-cpm:
-interaction.options.getString("cpm"),
+const deadline =
+interaction.options.getString("deadline");
 
-deadline:
-interaction.options.getString("deadline"),
+const description =
+interaction.options.getString("description");
 
-description:
-interaction.options.getString("description")
+
+
+const id =
+Date.now().toString();
+
+
+
+const category =
+await interaction.guild.channels.create({
+
+name:`🎬-${name}`,
+
+type:ChannelType.GuildCategory
+
+});
+
+
+
+const channels = {};
+
+
+
+for(const channelName of [
+"general",
+"rules",
+"resources",
+"information"
+]){
+
+
+channels[channelName] =
+await interaction.guild.channels.create({
+
+name:channelName,
+
+type:ChannelType.GuildText,
+
+parent:category.id,
+
+
+permissionOverwrites:[
+
+{
+id:interaction.guild.roles.everyone.id,
+
+deny:[
+PermissionFlagsBits.ViewChannel
+]
+
+}
+
+]
+
+});
+
+
+}
+
+
+
+
+const campaign = {
+
+id,
+
+name,
+
+client,
+
+budget,
+
+cpm,
+
+deadline,
+
+description,
+
+category:category.id,
+
+channels,
+
+members:[],
+
+submissions:0,
+
+views:0,
+
+approved:0,
+
+paid:0,
+
+status:"Active"
 
 };
 
 
-
-
-
-const campaign =
-await createCampaign(
-interaction.guild,
-data
-);
+campaigns.set(id,campaign);
 
 
 
@@ -141,34 +210,37 @@ new EmbedBuilder()
 .setColor("#5865F2")
 
 .setTitle(
-`🎬 ${data.name}`
+`🎬 ${name}`
 )
 
 .setDescription(
 `
 🎵 **Client**
-${data.client}
+${client}
 
 
 💰 **Budget**
-$${data.budget}
+$${budget}
 
 
 📈 **CPM**
-${data.cpm}
+${cpm}
 
 
 📅 **End Date**
-${data.deadline}
+${deadline}
 
 
 📝 **Description**
-${data.description}
+${description}
 
 
-🕒 Status
-
+🕒 **Status**
 🟢 Active
+
+
+👥 **Editors Joined**
+0
 `
 )
 
@@ -177,7 +249,7 @@ ${data.description}
 
 
 
-const row =
+const buttons =
 new ActionRowBuilder()
 
 .addComponents(
@@ -185,7 +257,7 @@ new ActionRowBuilder()
 new ButtonBuilder()
 
 .setCustomId(
-`campaign_join_${campaign.id}`
+`join_${id}`
 )
 
 .setLabel(
@@ -200,7 +272,22 @@ ButtonStyle.Success
 new ButtonBuilder()
 
 .setCustomId(
-`campaign_status_${campaign.id}`
+`leave_${id}`
+)
+
+.setLabel(
+"🚪 Leave"
+)
+
+.setStyle(
+ButtonStyle.Danger
+),
+
+
+new ButtonBuilder()
+
+.setCustomId(
+`status_${id}`
 )
 
 .setLabel(
@@ -215,217 +302,79 @@ ButtonStyle.Primary
 
 
 
-const publicChannel =
+
+
+const activeChannel =
 interaction.guild.channels.cache.find(
 c=>c.name==="active-campaigns"
 );
 
 
 
-if(publicChannel){
+if(activeChannel){
 
-await publicChannel.send({
+await activeChannel.send({
 
-embeds:[
-embed
-],
+embeds:[embed],
 
-components:[
-row
-]
+components:[buttons]
 
 });
 
 }
+
 
 
 
 await interaction.reply({
 
 content:
-`✅ Campaign created: ${data.name}`,
+`✅ Campaign created: ${name}`,
 
 ephemeral:true
 
 });
 
 
-}
 
 
-catch(error){
 
-logger.error(
-"Campaign create error:",
-error
-);
+},
 
-}
 
-}
 
-};
-import {
-ChannelType,
-PermissionFlagsBits
-} from "discord.js";
 
+async button(interaction){
 
-const campaigns = new Map();
 
-
-
-export async function createCampaign(
-guild,
-data
-){
-
-
-const id =
-Date.now().toString();
-
-
-
-const category =
-await guild.channels.create({
-
-name:
-`🎬 ${data.name}`,
-
-type:
-ChannelType.GuildCategory
-
-});
-
-
-
-const channels=[];
-
-
-for(
-const name of [
-"general",
-"rules",
-"resources",
-"information"
-]
-){
-
-
-const channel =
-await guild.channels.create({
-
-name:name,
-
-type:
-ChannelType.GuildText,
-
-parent:
-category.id,
-
-
-permissionOverwrites:[
-
-{
-
-id:
-guild.roles.everyone.id,
-
-deny:[
-PermissionFlagsBits.ViewChannel
-]
-
-}
-
-]
-
-});
-
-
-channels.push(channel);
-
-}
-
-
-
-campaigns.set(id,{
-
-id,
-
-...data,
-
-category:
-
-category.id,
-
-members:[],
-
-submissions:0,
-
-views:0,
-
-paid:0,
-
-approved:0
-
-});
-
-
-
-return campaigns.get(id);
-
-}
-
-
-
-export function getCampaign(id){
-
-return campaigns.get(id);
-
-}
-import {
-EmbedBuilder
-} from "discord.js";
-
-import {
-getCampaign
-} from "../utils/campaignManager.js";
-
-
-
-export default async function(
-interaction
-){
-
-
-
-const args =
+const parts =
 interaction.customId.split("_");
 
 
 const action =
-args[1];
-
+parts[0];
 
 const id =
-args[2];
-
+parts[1];
 
 
 const campaign =
-getCampaign(id);
+campaigns.get(id);
 
 
 
-if(!campaign)
+if(!campaign){
+
 return interaction.reply({
 
 content:
-"❌ Campaign not found.",
+"❌ Campaign expired.",
 
 ephemeral:true
 
 });
+
+}
 
 
 
@@ -443,13 +392,14 @@ interaction.user.id
 return interaction.reply({
 
 content:
-"Already joined.",
+"⚠️ You already joined.",
 
 ephemeral:true
 
 });
 
 }
+
 
 
 campaign.members.push(
@@ -458,15 +408,37 @@ interaction.user.id
 
 
 
-return interaction.reply({
+await interaction.reply({
 
 content:
-"🎬 You joined this campaign!",
+"🎬 You joined the campaign!",
 
 ephemeral:true
 
 });
 
+}
+
+
+
+if(action==="leave"){
+
+
+campaign.members =
+campaign.members.filter(
+id=>id!==interaction.user.id
+);
+
+
+
+await interaction.reply({
+
+content:
+"🚪 You left the campaign.",
+
+ephemeral:true
+
+});
 
 }
 
@@ -475,6 +447,7 @@ ephemeral:true
 
 
 if(action==="status"){
+
 
 
 const embed =
@@ -489,12 +462,22 @@ new EmbedBuilder()
 🎬 ${campaign.name}
 
 
+💰 Budget
+
+$${campaign.budget}
+
+
+📈 CPM
+
+${campaign.cpm}
+
+
 👥 Joined Editors
 
 ${campaign.members.length}
 
 
-📤 Submissions
+📤 Total Submissions
 
 ${campaign.submissions}
 
@@ -516,13 +499,18 @@ $${campaign.paid}
 
 🕒 Status
 
-Active
+${campaign.status}
+
+
+📅 End Date
+
+${campaign.deadline}
 `
 );
 
 
 
-return interaction.reply({
+await interaction.reply({
 
 embeds:[
 embed
@@ -536,5 +524,7 @@ ephemeral:true
 }
 
 
-
 }
+
+
+};
