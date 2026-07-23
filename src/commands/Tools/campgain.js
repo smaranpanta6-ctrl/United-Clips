@@ -10,78 +10,81 @@ import {
 
 
 const STAFF_ROLE_ID = "1529961495402778771";
+const ACTIVE_CATEGORY_ID = "1529961507062812752";
+
 
 const campaigns = new Map();
+
 
 
 export default {
 
 data: new SlashCommandBuilder()
 
-    .setName("campaign")
+.setName("campaign")
 
-    .setDescription("Campaign management system")
+.setDescription("Campaign management system")
 
-    .setDMPermission(false)
+.setDMPermission(false)
 
-    .addSubcommand(sub =>
-        sub
-        .setName("create")
-        .setDescription("Create a new campaign")
+.addSubcommand(sub =>
+sub
+.setName("create")
+.setDescription("Create a campaign")
 
-        .addStringOption(option =>
-            option
-            .setName("name")
-            .setDescription("Campaign name")
-            .setRequired(true)
-        )
+.addStringOption(option =>
+option
+.setName("name")
+.setDescription("Song campaign name")
+.setRequired(true)
+)
 
-        .addStringOption(option =>
-            option
-            .setName("client")
-            .setDescription("Client name")
-            .setRequired(true)
-        )
+.addStringOption(option =>
+option
+.setName("client")
+.setDescription("Label/client")
+.setRequired(true)
+)
 
-        .addStringOption(option =>
-            option
-            .setName("budget")
-            .setDescription("Campaign budget")
-            .setRequired(true)
-        )
+.addStringOption(option =>
+option
+.setName("budget")
+.setDescription("Budget")
+.setRequired(true)
+)
 
-        .addStringOption(option =>
-            option
-            .setName("cpm")
-            .setDescription("CPM amount")
-            .setRequired(true)
-        )
+.addStringOption(option =>
+option
+.setName("cpm")
+.setDescription("CPM")
+.setRequired(true)
+)
 
-        .addStringOption(option =>
-            option
-            .setName("deadline")
-            .setDescription("Deadline")
-            .setRequired(true)
-        )
+.addStringOption(option =>
+option
+.setName("deadline")
+.setDescription("Deadline")
+.setRequired(true)
+)
 
-        .addStringOption(option =>
-            option
-            .setName("description")
-            .setDescription("Campaign description")
-            .setRequired(true)
-        )
-    ),
+.addStringOption(option =>
+option
+.setName("description")
+.setDescription("Description")
+.setRequired(true)
+)
+
+),
 
 
 
 async execute(interaction){
 
 
-const sub =
-interaction.options.getSubcommand();
-
-
-if(sub !== "create") return;
+if(
+interaction.options.getSubcommand()
+!== "create"
+) return;
 
 
 
@@ -104,20 +107,26 @@ ephemeral:true
 
 const data = {
 
+
 name:
 interaction.options.getString("name"),
+
 
 client:
 interaction.options.getString("client"),
 
+
 budget:
 interaction.options.getString("budget"),
+
 
 cpm:
 interaction.options.getString("cpm"),
 
+
 deadline:
 interaction.options.getString("deadline"),
+
 
 description:
 interaction.options.getString("description")
@@ -126,88 +135,78 @@ interaction.options.getString("description")
 
 
 
-const campaignId =
+const id =
 Date.now().toString();
 
 
 
-const category =
+const channelName =
+data.name
+.toLowerCase()
+.replace(/[^a-z0-9]+/g,"-")
+.slice(0,90);
+
+
+
+
+
+// CREATE ONLY ONE CHANNEL
+
+const campaignChannel =
 await interaction.guild.channels.create({
 
-name:
-`🎬 ${data.name}`,
-
-type:
-ChannelType.GuildCategory
-
-});
-
-
-
-for(
-const name of [
-"general",
-"rules",
-"resources",
-"information"
-]
-){
-
-await interaction.guild.channels.create({
-
-name,
+name: channelName,
 
 type:
 ChannelType.GuildText,
 
 parent:
-category.id,
-
-permissionOverwrites:[
-
-{
-id:
-interaction.guild.roles.everyone.id,
-
-deny:[
-PermissionFlagsBits.ViewChannel
-]
-
-}
-
-]
+ACTIVE_CATEGORY_ID
 
 });
 
-}
 
 
 
 const campaign = {
 
-id:campaignId,
+
+id,
 
 ...data,
 
+
+channel:
+campaignChannel.id,
+
+
+category:null,
+
+
 members:[],
+
 
 submissions:0,
 
+
 views:0,
 
-approved:0,
 
 paid:0,
 
+
 status:"Active"
+
 
 };
 
 
+
 campaigns.set(
-campaignId,
+id,
 campaign
 );
+
 
 
 
@@ -218,12 +217,12 @@ new EmbedBuilder()
 .setColor("Blue")
 
 .setTitle(
-`🎬 ${data.name}`
+`🎵 ${data.name}`
 )
 
 .setDescription(
 `
-🎵 **Client**
+🏷️ **Client**
 ${data.client}
 
 
@@ -235,7 +234,7 @@ $${data.budget}
 ${data.cpm}
 
 
-📅 **Deadline**
+📅 **Ends**
 ${data.deadline}
 
 
@@ -243,14 +242,16 @@ ${data.deadline}
 ${data.description}
 
 
-🕒 **Status**
-🟢 Active
+🟢 **Status**
+Active
 
 
 👥 **Editors Joined**
 0
 `
 );
+
+
 
 
 
@@ -262,11 +263,11 @@ new ActionRowBuilder()
 new ButtonBuilder()
 
 .setCustomId(
-`campaign_join_${campaignId}`
+`campaign_join_${id}`
 )
 
 .setLabel(
-"🎬 Join Campaign"
+"🎬 JOIN"
 )
 
 .setStyle(
@@ -274,14 +275,15 @@ ButtonStyle.Success
 ),
 
 
+
 new ButtonBuilder()
 
 .setCustomId(
-`campaign_leave_${campaignId}`
+`campaign_leave_${id}`
 )
 
 .setLabel(
-"🚪 Leave"
+"🚪 LEAVE"
 )
 
 .setStyle(
@@ -289,14 +291,15 @@ ButtonStyle.Danger
 ),
 
 
+
 new ButtonBuilder()
 
 .setCustomId(
-`campaign_status_${campaignId}`
+`campaign_status_${id}`
 )
 
 .setLabel(
-"📊 Status"
+"📊 STATUS"
 )
 
 .setStyle(
@@ -307,18 +310,7 @@ ButtonStyle.Primary
 
 
 
-
-const activeChannel =
-interaction.guild.channels.cache.find(
-channel =>
-channel.name === "active-campaigns"
-);
-
-
-
-if(activeChannel){
-
-await activeChannel.send({
+await campaignChannel.send({
 
 embeds:[
 embed
@@ -330,14 +322,14 @@ buttons
 
 });
 
-}
+
 
 
 
 await interaction.reply({
 
 content:
-`✅ Campaign created: ${data.name}`,
+`✅ Created campaign channel: ${campaignChannel}`,
 
 ephemeral:true
 
@@ -348,10 +340,383 @@ ephemeral:true
 
 
 
+
+
 async button(interaction){
 
-// button system goes here
+
+
+const [action,id] =
+interaction.customId
+.split("_").slice(1);
+
+
+
+const campaign =
+campaigns.get(id);
+
+
+
+if(!campaign)
+return interaction.reply({
+
+content:"❌ Campaign expired.",
+
+ephemeral:true
+
+});
+
+
+
+
+
+// JOIN BUTTON
+
+if(action==="join"){
+
+
+
+if(
+campaign.members.includes(
+interaction.user.id
+)
+){
+
+return interaction.reply({
+
+content:
+"❌ You already joined.",
+
+ephemeral:true
+
+});
 
 }
+
+
+
+
+
+campaign.members.push(
+interaction.user.id
+);
+
+
+
+
+
+if(!campaign.category){
+
+
+
+const category =
+await interaction.guild.channels.create({
+
+
+name:
+campaign.name,
+
+
+type:
+ChannelType.GuildCategory,
+
+
+permissionOverwrites:[
+
+
+{
+
+id:
+interaction.guild.roles.everyone.id,
+
+deny:[
+PermissionFlagsBits.ViewChannel
+]
+
+},
+
+
+
+{
+
+id:
+STAFF_ROLE_ID,
+
+allow:[
+PermissionFlagsBits.ViewChannel
+]
+
+},
+
+
+
+{
+
+id:
+interaction.user.id,
+
+allow:[
+PermissionFlagsBits.ViewChannel
+]
+
+}
+
+
+]
+
+
+});
+
+
+
+campaign.category =
+category.id;
+
+
+
+
+
+for(
+const name of [
+
+"information",
+"rules",
+"resources",
+"chat",
+"viral-examples"
+
+]
+
+){
+
+
+await interaction.guild.channels.create({
+
+name,
+
+type:
+ChannelType.GuildText,
+
+parent:
+category.id,
+
+
+permissionOverwrites:[
+
+{
+
+id:
+interaction.guild.roles.everyone.id,
+
+deny:[
+PermissionFlagsBits.ViewChannel
+]
+
+},
+
+
+{
+
+id:
+STAFF_ROLE_ID,
+
+allow:[
+PermissionFlagsBits.ViewChannel
+]
+
+},
+
+
+{
+
+id:
+interaction.user.id,
+
+allow:[
+PermissionFlagsBits.ViewChannel
+]
+
+}
+
+
+]
+
+});
+
+
+}
+
+
+
+}
+
+
+
+
+
+else{
+
+
+const category =
+interaction.guild.channels.cache.get(
+campaign.category
+);
+
+
+
+await category.permissionOverwrites.create(
+
+interaction.user.id,
+
+{
+
+ViewChannel:true
+
+}
+
+);
+
+
+}
+
+
+
+
+await interaction.reply({
+
+content:
+`✅ You joined **${campaign.name}**`,
+
+ephemeral:true
+
+});
+
+
+}
+
+
+
+
+
+
+// LEAVE BUTTON
+
+
+if(action==="leave"){
+
+
+
+campaign.members =
+campaign.members.filter(
+x=>x!==interaction.user.id
+);
+
+
+
+if(campaign.category){
+
+
+const category =
+interaction.guild.channels.cache.get(
+campaign.category
+);
+
+
+
+if(category){
+
+await category.permissionOverwrites.delete(
+interaction.user.id
+);
+
+}
+
+}
+
+
+
+
+
+await interaction.reply({
+
+content:
+"🚪 You left the campaign.",
+
+ephemeral:true
+
+});
+
+
+}
+
+
+
+
+
+
+
+// STATUS BUTTON
+
+
+if(action==="status"){
+
+
+const embed =
+new EmbedBuilder()
+
+.setColor("Green")
+
+.setTitle(
+`📊 ${campaign.name} STATUS`
+)
+
+.setDescription(
+
+`
+👥 Editors:
+${campaign.members.length}
+
+
+📤 Submissions:
+${campaign.submissions}
+
+
+👀 Views:
+${campaign.views}
+
+
+💸 Paid:
+$${campaign.paid}
+
+
+🟢 Status:
+${campaign.status}
+
+
+📅 Deadline:
+${campaign.deadline}
+
+`
+
+);
+
+
+
+await interaction.reply({
+
+embeds:[
+embed
+],
+
+ephemeral:true
+
+});
+
+
+}
+
+
+}
+
 
 };
