@@ -11,7 +11,7 @@ import {
 import { logger } from "../../utils/logger.js";
 
 
-const STAFF_ROLE_ID = "PUT_STAFF_ROLE_ID_HERE";
+const STAFF_ROLE_ID = "1529961495402778771";
 
 const campaigns = new Map();
 
