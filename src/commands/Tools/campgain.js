@@ -14,79 +14,57 @@ const ACTIVE_CATEGORY_ID = "1529961507062812752";
 const campaigns = new Map();
 
 export default {
-
     data: new SlashCommandBuilder()
-
         .setName("campaign")
-        .setDescription("Campaign Management")
+        .setDescription("Create and manage campaigns")
         .setDMPermission(false)
 
         .addSubcommand(sub =>
             sub
-
                 .setName("create")
                 .setDescription("Create a campaign")
 
-                .addStringOption(o =>
-                    o.setName("name")
-                        .setDescription("Campaign Name")
+                .addStringOption(option =>
+                    option
+                        .setName("name")
+                        .setDescription("Campaign name")
                         .setRequired(true)
                 )
 
-                .addStringOption(o =>
-                    o.setName("artist")
-                        .setDescription("Artist")
+                .addStringOption(option =>
+                    option
+                        .setName("client")
+                        .setDescription("Label / Client")
                         .setRequired(true)
                 )
 
-                .addStringOption(o =>
-                    o.setName("song")
-                        .setDescription("Song")
-                        .setRequired(true)
-                )
-
-                .addStringOption(o =>
-                    o.setName("label")
-                        .setDescription("Label")
-                        .setRequired(true)
-                )
-
-                .addStringOption(o =>
-                    o.setName("budget")
+                .addStringOption(option =>
+                    option
+                        .setName("budget")
                         .setDescription("Budget")
                         .setRequired(true)
                 )
 
-                .addStringOption(o =>
-                    o.setName("cpm")
+                .addStringOption(option =>
+                    option
+                        .setName("cpm")
                         .setDescription("CPM")
                         .setRequired(true)
                 )
 
-                .addStringOption(o =>
-                    o.setName("deadline")
+                .addStringOption(option =>
+                    option
+                        .setName("deadline")
                         .setDescription("Deadline")
                         .setRequired(true)
                 )
 
-                .addStringOption(o =>
-                    o.setName("description")
-                        .setDescription("Brief")
+                .addStringOption(option =>
+                    option
+                        .setName("description")
+                        .setDescription("Campaign description")
                         .setRequired(true)
                 )
-
-                .addStringOption(o =>
-                    o.setName("rules")
-                        .setDescription("Rules")
-                        .setRequired(true)
-                )
-
-                .addStringOption(o =>
-                    o.setName("resources")
-                        .setDescription("Resources")
-                        .setRequired(true)
-                )
-
         ),
 
     async execute(interaction) {
@@ -94,72 +72,39 @@ export default {
         if (interaction.options.getSubcommand() !== "create") return;
 
         if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
-
             return interaction.reply({
                 content: "❌ Only staff can create campaigns.",
                 ephemeral: true
             });
-
         }
 
         await interaction.deferReply({ ephemeral: true });
 
         const data = {
-
-            id: Date.now().toString(),
-
             name: interaction.options.getString("name"),
-
-            artist: interaction.options.getString("artist"),
-
-            song: interaction.options.getString("song"),
-
-            label: interaction.options.getString("label"),
-
+            client: interaction.options.getString("client"),
             budget: interaction.options.getString("budget"),
-
             cpm: interaction.options.getString("cpm"),
-
             deadline: interaction.options.getString("deadline"),
-
-            description: interaction.options.getString("description"),
-
-            rules: interaction.options.getString("rules"),
-
-            resources: interaction.options.getString("resources"),
-
-            members: [],
-
-            submissions: 0,
-
-            paid: 0,
-
-            views: 0,
-
-            status: "Active",
-
-            category: null
-
+            description: interaction.options.getString("description")
         };
 
-        campaigns.set(data.id, data);
+        const id = Date.now().toString();
+
+        const channelName = data.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 90);
 
         const activeCategory =
             await interaction.guild.channels.fetch(ACTIVE_CATEGORY_ID);
 
         if (!activeCategory) {
-
             return interaction.editReply({
-                content: "❌ Active Campaign category not found."
+                content: "❌ Active Campaigns category not found."
             });
-
         }
-
-        const channelName = data.name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, "")
-            .slice(0, 90);
 
         const campaignChannel =
             await interaction.guild.channels.create({
@@ -172,89 +117,69 @@ export default {
 
             });
 
-        data.channel = campaignChannel.id;
-                const embed = new EmbedBuilder()
+        campaigns.set(id, {
+            id,
+            ...data,
+            channel: campaignChannel.id,
+            category: null,
+            members: [],
+            submissions: 0,
+            views: 0,
+            paid: 0,
+            status: "Active"
+        });
 
-            .setColor("#2B2D31")
-
-            .setTitle(`🎵 ${data.artist} - ${data.song}`)
-
+        const embed = new EmbedBuilder()
+            .setColor("#5865F2")
+            .setTitle(`🎵 ${data.name}`)
             .setDescription(
-`## 💰 Campaign Information
+`🏷️ **Client**
+${data.client}
 
-**🏷️ Label**
-${data.label}
-
-**💵 Budget**
+💰 **Budget**
 ${data.budget}
 
-**📈 CPM**
+📈 **CPM**
 ${data.cpm}
 
-**📅 Deadline**
+📅 **Ends**
 ${data.deadline}
 
-**📝 Brief**
+📝 **Description**
 ${data.description}
 
----
+🟢 **Status**
+Active
 
-Click **JOIN** below to participate in this campaign.
-
-🟢 **Status:** Active
-
-👥 **Editors Joined:** ${data.members.length}
-`
+👥 **Editors Joined**
+0`
             );
+                const buttons = new ActionRowBuilder().addComponents(
 
-        const buttons = new ActionRowBuilder()
+            new ButtonBuilder()
+                .setCustomId(`campaign_join_${id}`)
+                .setLabel("🎬 JOIN")
+                .setStyle(ButtonStyle.Success),
 
-            .addComponents(
+            new ButtonBuilder()
+                .setCustomId(`campaign_leave_${id}`)
+                .setLabel("🚪 LEAVE")
+                .setStyle(ButtonStyle.Danger),
 
-                new ButtonBuilder()
+            new ButtonBuilder()
+                .setCustomId(`campaign_status_${id}`)
+                .setLabel("📊 STATUS")
+                .setStyle(ButtonStyle.Primary)
 
-                    .setCustomId(`campaign_join_${data.id}`)
-
-                    .setLabel("JOIN")
-
-                    .setEmoji("🚀")
-
-                    .setStyle(ButtonStyle.Success),
-
-                new ButtonBuilder()
-
-                    .setCustomId(`campaign_leave_${data.id}`)
-
-                    .setLabel("LEAVE")
-
-                    .setEmoji("🚪")
-
-                    .setStyle(ButtonStyle.Danger),
-
-                new ButtonBuilder()
-
-                    .setCustomId(`campaign_status_${data.id}`)
-
-                    .setLabel("STATUS")
-
-                    .setEmoji("📈")
-
-                    .setStyle(ButtonStyle.Secondary)
-
-            );
+        );
 
         await campaignChannel.send({
-
             embeds: [embed],
-
             components: [buttons]
-
         });
 
         await interaction.editReply({
-
-            content: `✅ Campaign created successfully in ${campaignChannel}.`
-
+            content: `✅ Campaign created: ${campaignChannel}`
         });
 
     },
@@ -266,30 +191,212 @@ Click **JOIN** below to participate in this campaign.
         const campaign = campaigns.get(id);
 
         if (!campaign) {
-
             return interaction.reply({
-
-                content: "❌ Campaign no longer exists.",
-
+                content: "❌ Campaign not found.",
                 ephemeral: true
-
             });
-
         }
 
         if (action === "join") {
 
             if (campaign.members.includes(interaction.user.id)) {
-
                 return interaction.reply({
-
-                    content: "❌ You already joined this campaign.",
-
+                    content: "❌ You're already in this campaign.",
                     ephemeral: true
-
                 });
-
             }
 
             campaign.members.push(interaction.user.id);
-            
+
+            if (!campaign.category) {
+
+                const category =
+                    await interaction.guild.channels.create({
+
+                        name: campaign.name.toUpperCase(),
+
+                        type: ChannelType.GuildCategory,
+
+                        permissionOverwrites: [
+
+                            {
+                                id: interaction.guild.roles.everyone.id,
+                                deny: [
+                                    PermissionFlagsBits.ViewChannel
+                                ]
+                            },
+
+                            {
+                                id: STAFF_ROLE_ID,
+                                allow: [
+                                    PermissionFlagsBits.ViewChannel,
+                                    PermissionFlagsBits.SendMessages
+                                ]
+                            },
+
+                            {
+                                id: interaction.user.id,
+                                allow: [
+                                    PermissionFlagsBits.ViewChannel,
+                                    PermissionFlagsBits.SendMessages
+                                ]
+                            }
+
+                        ]
+
+                    });
+
+                campaign.category = category.id;
+
+                const channels = [
+                    "information",
+                    "rules",
+                    "resources",
+                    "chat",
+                    "viral-examples"
+                ];
+
+                for (const ch of channels) {
+
+                    await interaction.guild.channels.create({
+
+                        name: ch,
+
+                        type: ChannelType.GuildText,
+
+                        parent: category.id,
+
+                        permissionOverwrites: [
+
+                            {
+                                id: interaction.guild.roles.everyone.id,
+                                deny: [
+                                    PermissionFlagsBits.ViewChannel
+                                ]
+                            },
+
+                            {
+                                id: STAFF_ROLE_ID,
+                                allow: [
+                                    PermissionFlagsBits.ViewChannel,
+                                    PermissionFlagsBits.SendMessages
+                                ]
+                            },
+
+                            {
+                                id: interaction.user.id,
+                                allow: [
+                                    PermissionFlagsBits.ViewChannel,
+                                    PermissionFlagsBits.SendMessages
+                                ]
+                            }
+
+                        ]
+
+                    });
+
+                }
+            } else {
+
+                const category =
+                    interaction.guild.channels.cache.get(campaign.category);
+
+                if (category) {
+
+                    await category.permissionOverwrites.create(
+                        interaction.user.id,
+                        {
+                            ViewChannel: true,
+                            SendMessages: true
+                        }
+                    );
+
+                }
+            }
+
+            return interaction.reply({
+                content: `✅ You joined **${campaign.name}**`,
+                ephemeral: true
+            });
+
+        }
+                if (action === "leave") {
+
+            campaign.members = campaign.members.filter(
+                member => member !== interaction.user.id
+            );
+
+            if (campaign.category) {
+
+                const category = interaction.guild.channels.cache.get(
+                    campaign.category
+                );
+
+                if (category) {
+
+                    await category.permissionOverwrites.delete(
+                        interaction.user.id
+                    ).catch(() => {});
+
+                    const children =
+                        interaction.guild.channels.cache.filter(
+                            c => c.parentId === category.id
+                        );
+
+                    for (const [, channel] of children) {
+                        await channel.permissionOverwrites.delete(
+                            interaction.user.id
+                        ).catch(() => {});
+                    }
+
+                }
+
+            }
+
+            return interaction.reply({
+                content: `🚪 You left **${campaign.name}**`,
+                ephemeral: true
+            });
+
+        }
+
+        if (action === "status") {
+
+            const embed = new EmbedBuilder()
+
+                .setColor("Green")
+
+                .setTitle(`📊 ${campaign.name}`)
+
+                .setDescription(`
+
+👥 **Editors Joined**
+${campaign.members.length}
+
+📤 **Submissions**
+${campaign.submissions}
+
+👀 **Views**
+${campaign.views}
+
+💸 **Paid**
+$${campaign.paid}
+
+🟢 **Status**
+${campaign.status}
+
+📅 **Deadline**
+${campaign.deadline}
+
+                `);
+
+            return interaction.reply({
+                embeds: [embed],
+                ephemeral: true
+            });
+
+        }
+
+    }
+
+};
