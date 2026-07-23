@@ -720,3 +720,34 @@ ephemeral:true
 
 
 };
+const campaignChannel =
+await interaction.guild.channels.create({
+    name: channelName,
+    type: ChannelType.GuildText,
+    parent: ACTIVE_CATEGORY_ID
+});
+// CREATE ONLY ONE CHANNEL UNDER ACTIVE CAMPAIGNS
+
+const activeCategory = await interaction.guild.channels.fetch(ACTIVE_CATEGORY_ID);
+
+if (!activeCategory || activeCategory.type !== ChannelType.GuildCategory) {
+    return interaction.reply({
+        content: `❌ Active category (${ACTIVE_CATEGORY_ID}) was not found.`,
+        ephemeral: true
+    });
+}
+
+const campaignChannel = await interaction.guild.channels.create({
+    name: channelName,
+    type: ChannelType.GuildText,
+    parent: activeCategory.id,
+    permissionOverwrites: [
+        {
+            id: interaction.guild.roles.everyone.id,
+            allow: [PermissionFlagsBits.ViewChannel]
+        }
+    ]
+});
+
+// Force the channel under the category
+await campaignChannel.setParent(activeCategory.id, { lockPermissions: false });
