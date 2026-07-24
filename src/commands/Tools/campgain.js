@@ -187,26 +187,35 @@ Active
 
     async button(interaction) {
 
-        const [, action, id] = interaction.customId.split("_");
+   console.log("===== BUTTON CLICKED =====");
+console.log(interaction.customId);
 
-        const campaign = campaigns.get(id);
+const [, action, id] = interaction.customId.split("_");
 
-        if (!campaign) {
+console.log(action);
+console.log(id);
+
+    const campaign = campaigns.get(id);
+
+    console.log("Campaign Found:", !!campaign);
+
+    if (!campaign) {
+        return interaction.reply({
+            content: "❌ Campaign not found.",
+            ephemeral: true
+        });
+    }
+
+    if (action === "join") {
+
+        if (campaign.members.includes(interaction.user.id)) {
             return interaction.reply({
-                content: "❌ Campaign not found.",
+                content: "❌ You're already in this campaign.",
                 ephemeral: true
             });
         }
 
-        if (action === "join") {
-
-            if (campaign.members.includes(interaction.user.id)) {
-                return interaction.reply({
-                    content: "❌ You're already in this campaign.",
-                    ephemeral: true
-                });
-            }
-
+        // leave the rest of your code exactly the same...
             campaign.members.push(interaction.user.id);
 
             if (!campaign.category) {
