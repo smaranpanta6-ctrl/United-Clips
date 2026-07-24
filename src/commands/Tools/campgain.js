@@ -140,9 +140,15 @@ console.log("Expected:", ACTIVE_CATEGORY_ID);
 };
 
 await saveCampaign(interaction.client, id, campaign);
-     const test = await getCampaign(interaction.client, id);
+
+console.log("========== AFTER SAVE ==========");
 console.log("Campaign ID:", id);
-console.log("Campaign after save:", test);
+
+const raw = await interaction.client.db.get(`campaigns:${id}`);
+console.log("Raw DB:", raw);
+
+const loaded = await getCampaign(interaction.client, id);
+console.log("Loaded Campaign:", loaded);
         const embed = new EmbedBuilder()
             .setColor("#5865F2")
             .setTitle(`🎵 ${data.name}`)
