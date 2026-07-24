@@ -109,6 +109,14 @@ export default {
 console.log("Category:", activeCategory.name);
 console.log("ID:", activeCategory.id);
 console.log("Type:", activeCategory.type);
+        const campaignChannel = await interaction.guild.channels.create({
+    name: channelName,
+    type: ChannelType.GuildText,
+    parent: activeCategory.id
+});
+
+console.log("Parent:", campaignChannel.parentId);
+console.log("Expected:", ACTIVE_CATEGORY_ID);
 
        const campaignChannel = await interaction.guild.channels.create({
     name: channelName,
