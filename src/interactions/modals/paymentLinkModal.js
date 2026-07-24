@@ -18,10 +18,17 @@ export default {
             flags: MessageFlags.Ephemeral
         });
 
-        const email = interaction.fields
-            .getTextInputValue("paypal_email")
-            .trim()
-            .toLowerCase();
+        const payment = await savePaymentMethod(
+    client,
+    interaction.guild.id,
+    interaction.user.id,
+    "paypal",
+    paypalEmail,
+    interaction.user.username,
+    interaction.member?.displayName ||
+        interaction.user.globalName ||
+        interaction.user.username
+);
 
         if (!isValidEmail(email)) {
             return interaction.editReply({
