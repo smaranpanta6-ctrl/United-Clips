@@ -323,21 +323,23 @@ export default {
                   handler: 'todo'
                 }, interactionTraceContext));
               }
-            } else {
-              throw createError(
-                `No button handler found for ${buttonType}`,
-                ErrorTypes.CONFIGURATION,
-                'This button is not available.',
-                withTraceContext({ buttonType }, interactionTraceContext)
-              );
-            }
-            return;
-          }
+            } else if (interaction.isButton()) {
 
-          const [customId, ...args] = interaction.customId.split(':');
-          const button = client.buttons.get(customId);
+    if (interaction.customId.startsWith("campaign_")) {
+        const command = client.commands.get("campaign");
 
-          if (!button) {
+        if (command?.button) {
+            return await command.button(interaction);
+        }
+    }
+
+    const [customId, ...args] = interaction.customId.split(":");
+
+    const button = client.buttons.get(customId);
+
+    ...
+}
+ if (!button) {
             if (!interaction.customId.includes(':') || isCollectorManagedComponent(customId)) {
               return;
             }
