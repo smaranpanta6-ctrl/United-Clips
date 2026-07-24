@@ -323,34 +323,6 @@ for (const ch of channels) {
     );
 }
 
-                            {
-                                id: interaction.guild.roles.everyone.id,
-                                deny: [
-                                    PermissionFlagsBits.ViewChannel
-                                ]
-                            },
-
-                            {
-                                id: STAFF_ROLE_ID,
-                                allow: [
-                                    PermissionFlagsBits.ViewChannel,
-                                    PermissionFlagsBits.SendMessages
-                                ]
-                            },
-
-                            {
-                                id: interaction.user.id,
-                                allow: [
-                                    PermissionFlagsBits.ViewChannel,
-                                    PermissionFlagsBits.SendMessages
-                                ]
-                            }
-
-                        ]
-
-                    });
-
-                }
             } else {
 
                 const category =
