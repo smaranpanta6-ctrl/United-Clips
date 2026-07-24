@@ -9,17 +9,13 @@ import {
 } from "discord.js";
 import {
     saveMember,
-    getMember,
-    deleteMember,
-    getCampaignMembers
+    deleteMember
 } from "../../utils/campaignMembers.js";
 
 import {
     saveCampaign,
-    getCampaign,
-    deleteCampaign,
-    getAllCampaigns
-} from "../../utils/database.js";
+    getCampaign
+} from "../../utils/database.js"
 
 console.log("🔥 CAMPAIGN COMMAND LOADED 🔥");
 
@@ -622,7 +618,9 @@ if (publicCampaignChannel) {
 });
 
 } // <-- end LEAVE
-                if (action === "status") {
+                       } // end leave
+
+        if (action === "status") {
             const numericBudget =
                 Number(
                     String(campaign.budget)
@@ -631,12 +629,21 @@ if (publicCampaignChannel) {
                 ) || 0;
 
             const numericPaid = Number(campaign.paid) || 0;
-            const remainingBudget = Math.max(0, numericBudget - numericPaid);
+            const remainingBudget = Math.max(
+                0,
+                numericBudget - numericPaid
+            );
 
             const statusEmbed = new EmbedBuilder()
-                .setColor(campaign.status === "Active" ? "#57F287" : "#747F8D")
+                .setColor(
+                    campaign.status === "Active"
+                        ? "#57F287"
+                        : "#747F8D"
+                )
                 .setTitle("📊 Campaign Overview")
-                .setDescription(`Details for **${campaign.name}**`)
+                .setDescription(
+                    `Details for **${campaign.name}**`
+                )
                 .addFields(
                     {
                         name: "💰 Budget Remaining",
@@ -648,27 +655,31 @@ if (publicCampaignChannel) {
                     },
                     {
                         name: "📈 CPM",
-                        value: campaign.cpm,
+                        value: String(campaign.cpm),
                         inline: true
                     },
                     {
                         name: "👥 Members",
-                        value: `${campaign.members.length}`,
+                        value: String(campaign.members.length),
                         inline: true
                     },
                     {
                         name: "📤 Submissions",
-                        value: `${campaign.submissions || 0}`,
+                        value: String(campaign.submissions || 0),
                         inline: true
                     },
                     {
                         name: "👀 Total Views",
-                        value: Number(campaign.views || 0).toLocaleString(),
+                        value: Number(
+                            campaign.views || 0
+                        ).toLocaleString(),
                         inline: true
                     },
                     {
                         name: "💸 Paid Out",
-                        value: `$${Number(campaign.paid || 0).toLocaleString("en-US", {
+                        value: `$${Number(
+                            campaign.paid || 0
+                        ).toLocaleString("en-US", {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2
                         })}`,
@@ -676,17 +687,17 @@ if (publicCampaignChannel) {
                     },
                     {
                         name: "🟢 Status",
-                        value: campaign.status,
+                        value: String(campaign.status),
                         inline: true
                     },
                     {
                         name: "📅 Deadline",
-                        value: campaign.deadline,
+                        value: String(campaign.deadline),
                         inline: true
                     },
                     {
                         name: "🏷️ Client",
-                        value: campaign.client,
+                        value: String(campaign.client),
                         inline: true
                     }
                 )
