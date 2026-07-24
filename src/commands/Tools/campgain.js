@@ -622,84 +622,83 @@ if (publicCampaignChannel) {
 });
 
 } // <-- end LEAVE
-        if (action === "status") {
-    const numericBudget =
-        Number(
-            String(campaign.budget)
-                .replace(/[$,]/g, "")
-                .trim()
-        ) || 0;
+                if (action === "status") {
+            const numericBudget =
+                Number(
+                    String(campaign.budget)
+                        .replace(/[$,]/g, "")
+                        .trim()
+                ) || 0;
 
-    const numericPaid = Number(campaign.paid) || 0;
-    const remainingBudget = Math.max(0, numericBudget - numericPaid);
+            const numericPaid = Number(campaign.paid) || 0;
+            const remainingBudget = Math.max(0, numericBudget - numericPaid);
 
-    const statusEmbed = new EmbedBuilder()
-        .setColor(campaign.status === "Active" ? "#57F287" : "#747F8D")
-        .setTitle("📊 Campaign Overview")
-        .setDescription(`Details for **${campaign.name}**`)
-        .addFields(
-            {
-                name: "💰 Budget Remaining",
-                value: `$${remainingBudget.toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                })}`,
-                inline: true
-            },
-            {
-                name: "📈 CPM",
-                value: campaign.cpm,
-                inline: true
-            },
-            {
-                name: "👥 Members",
-                value: `${campaign.members.length}`,
-                inline: true
-            },
-            {
-                name: "📤 Submissions",
-                value: `${campaign.submissions || 0}`,
-                inline: true
-            },
-            {
-                name: "👀 Total Views",
-                value: Number(campaign.views || 0).toLocaleString(),
-                inline: true
-            },
-            {
-                name: "💸 Paid Out",
-                value: `$${Number(campaign.paid || 0).toLocaleString(
-                    "en-US",
+            const statusEmbed = new EmbedBuilder()
+                .setColor(campaign.status === "Active" ? "#57F287" : "#747F8D")
+                .setTitle("📊 Campaign Overview")
+                .setDescription(`Details for **${campaign.name}**`)
+                .addFields(
                     {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
+                        name: "💰 Budget Remaining",
+                        value: `$${remainingBudget.toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        })}`,
+                        inline: true
+                    },
+                    {
+                        name: "📈 CPM",
+                        value: campaign.cpm,
+                        inline: true
+                    },
+                    {
+                        name: "👥 Members",
+                        value: `${campaign.members.length}`,
+                        inline: true
+                    },
+                    {
+                        name: "📤 Submissions",
+                        value: `${campaign.submissions || 0}`,
+                        inline: true
+                    },
+                    {
+                        name: "👀 Total Views",
+                        value: Number(campaign.views || 0).toLocaleString(),
+                        inline: true
+                    },
+                    {
+                        name: "💸 Paid Out",
+                        value: `$${Number(campaign.paid || 0).toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        })}`,
+                        inline: true
+                    },
+                    {
+                        name: "🟢 Status",
+                        value: campaign.status,
+                        inline: true
+                    },
+                    {
+                        name: "📅 Deadline",
+                        value: campaign.deadline,
+                        inline: true
+                    },
+                    {
+                        name: "🏷️ Client",
+                        value: campaign.client,
+                        inline: true
                     }
-                )}`,
-                inline: true
-            },
-            {
-                name: "🟢 Status",
-                value: campaign.status,
-                inline: true
-            },
-            {
-                name: "📅 Deadline",
-                value: campaign.deadline,
-                inline: true
-            },
-            {
-                name: "🏷️ Client",
-                value: campaign.client,
-                inline: true
-            }
-        )
-        .setFooter({
-            text: `${interaction.guild.name} • Live campaign status`
-        })
-        .setTimestamp();
+                )
+                .setFooter({
+                    text: `${interaction.guild.name} • Live campaign status`
+                })
+                .setTimestamp();
 
-    return interaction.reply({
-        embeds: [statusEmbed],
-        ephemeral: true
-    });
-}
+            return interaction.reply({
+                embeds: [statusEmbed],
+                ephemeral: true
+            });
+        }
+    }
+};
