@@ -5,13 +5,13 @@ export default {
     name: "niche_selector",
 
     async execute(interaction) {
-        await interaction.deferReply({
-            ephemeral: true
-        });
-
         try {
+            await interaction.deferReply({
+                ephemeral: true
+            });
+
             if (!interaction.guild) {
-                return interaction.editReply({
+                return await interaction.editReply({
                     content: "❌ This selector only works inside the server."
                 });
             }
@@ -22,7 +22,7 @@ export default {
                 !botMember ||
                 !botMember.permissions.has(PermissionFlagsBits.ManageRoles)
             ) {
-                return interaction.editReply({
+                return await interaction.editReply({
                     content: "❌ I need the **Manage Roles** permission."
                 });
             }
@@ -84,12 +84,12 @@ export default {
             }
 
             if (selectedNames.length === 0) {
-                return interaction.editReply({
+                return await interaction.editReply({
                     content: "✅ All of your niche roles were removed."
                 });
             }
 
-            return interaction.editReply({
+            return await interaction.editReply({
                 content: [
                     "## 🎉 Congratulations — Niches Selected!",
                     "",
@@ -103,12 +103,13 @@ export default {
         } catch (error) {
             console.error("Niche selector error:", error);
 
-            return interaction.editReply({
-                content: [
-                    "❌ I couldn't update your niche roles.",
-                    "",
-                    "Make sure the bot has **Manage Roles** and its role is above all campaign roles."
-                ].join("\n")
+            if (interaction.deferred || interaction.replied) {
+                return;
+            }
+
+            return interaction.reply({
+                content: "❌ I couldn't update your niche roles.",
+                ephemeral: true
             });
         }
     }
