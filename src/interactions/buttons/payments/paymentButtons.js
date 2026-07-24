@@ -42,7 +42,7 @@ async function handleLinkPayment(interaction) {
 
     const modal = new ModalBuilder()
         .setCustomId("payment_link_modal")
-        .setTitle("💸 Add Payment Method")
+        .setTitle("💳 Set Up Your Payout Account")
         .addComponents(
             new ActionRowBuilder().addComponents(emailInput)
         );
@@ -104,18 +104,18 @@ async function handleManagePayments(interaction, client) {
         .setTimestamp();
 
     const buttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId("payment_link")
-            .setLabel("Update PayPal")
-            .setEmoji("✏️")
-            .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+        .setCustomId("payment_link")
+        .setLabel("Change Payout Account")
+        .setEmoji("🔄")
+        .setStyle(ButtonStyle.Primary),
 
-        new ButtonBuilder()
-            .setCustomId("payment_unlink")
-            .setLabel("Unlink Payment")
-            .setEmoji("🗑️")
-            .setStyle(ButtonStyle.Danger)
-    );
+    new ButtonBuilder()
+        .setCustomId("payment_unlink")
+        .setLabel("Remove Payout Account")
+        .setEmoji("🗑️")
+        .setStyle(ButtonStyle.Danger)
+);
 
     return interaction.editReply({
         embeds: [embed],
