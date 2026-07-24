@@ -8,12 +8,11 @@ import {
 } from "discord.js";
 
 import { nicheRoles } from "../../config/nicheRoles.js";
-import { getColor } from "../../config/bot.js";
 
 function createNicheMenu() {
     const menu = new StringSelectMenuBuilder()
         .setCustomId("niche_selector")
-        .setPlaceholder("Select the campaign niches you want...")
+        .setPlaceholder("Choose your campaign niches...")
         .setMinValues(0)
         .setMaxValues(nicheRoles.length);
 
@@ -33,9 +32,8 @@ function createNicheMenu() {
 export default {
     data: new SlashCommandBuilder()
         .setName("niche")
-        .setDescription("Manage the campaign niche selector")
+        .setDescription("Manage the UNITED CLIPS niche selector")
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-
         .addSubcommand(subcommand =>
             subcommand
                 .setName("post")
@@ -49,22 +47,35 @@ export default {
             return;
         }
 
+        if (!interaction.channel) {
+            return interaction.reply({
+                content: "❌ I could not find the channel.",
+                ephemeral: true
+            });
+        }
+
         const embed = new EmbedBuilder()
-            .setTitle("🔔 Get Alerts About Campaigns in Your Niche")
+            .setColor(0x111318)
+            .setAuthor({
+                name: "UNITED CLIPS"
+            })
+            .setTitle("Choose Your Campaign Niches")
             .setDescription(
                 [
-                    "Choose the types of campaigns you want to be notified about.",
+                    "Personalize the opportunities you receive.",
                     "",
-                    "You can select multiple niches.",
-                    "Open the menu again at any time to update your choices.",
+                    "Select the campaign categories that match your content and interests. You will only be notified when a campaign fits one of your selected niches.",
                     "",
-                    "**Selecting an option adds its role.**",
-                    "**Removing an option removes its role.**"
+                    "**How it works**",
+                    "✦ Select one or multiple categories",
+                    "✦ Update your selections whenever you want",
+                    "✦ Deselect a category to remove its role",
+                    "",
+                    "*Your selections determine which campaign alerts you receive.*"
                 ].join("\n")
             )
-            .setColor(getColor("info"))
             .setFooter({
-                text: "Your selections can be changed at any time"
+                text: "UNITED CLIPS • Campaign Preferences"
             })
             .setTimestamp();
 
@@ -74,7 +85,7 @@ export default {
         });
 
         await interaction.reply({
-            content: "✅ Niche selector posted.",
+            content: "✅ The UNITED CLIPS niche selector was posted.",
             ephemeral: true
         });
     }
