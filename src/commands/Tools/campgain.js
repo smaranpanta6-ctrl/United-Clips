@@ -66,28 +66,31 @@ export default {
                         .setRequired(true)
                 )
         ),
+    
 
-    async execute(interaction) {
+ async execute(interaction) {
 
-        if (interaction.options.getSubcommand() !== "create") return;
+    throw new Error("TEST");
 
-        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
-            return interaction.reply({
-                content: "❌ Only staff can create campaigns.",
-                ephemeral: true
-            });
-        }
+    if (interaction.options.getSubcommand() !== "create") return;
 
-        await interaction.deferReply({ ephemeral: true });
+    if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+        return interaction.reply({
+            content: "❌ Only staff can create campaigns.",
+            ephemeral: true
+        });
+    }
 
-        const data = {
-            name: interaction.options.getString("name"),
-            client: interaction.options.getString("client"),
-            budget: interaction.options.getString("budget"),
-            cpm: interaction.options.getString("cpm"),
-            deadline: interaction.options.getString("deadline"),
-            description: interaction.options.getString("description")
-        };
+    await interaction.deferReply({ ephemeral: true });
+
+    const data = {
+        name: interaction.options.getString("name"),
+        client: interaction.options.getString("client"),
+        budget: interaction.options.getString("budget"),
+        cpm: interaction.options.getString("cpm"),
+        deadline: interaction.options.getString("deadline"),
+        description: interaction.options.getString("description")
+    };
 
         const id = Date.now().toString();
 
