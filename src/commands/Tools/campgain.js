@@ -184,20 +184,17 @@ Active
         });
 
     },
+async button(interaction) {
 
-    async button(interaction) {
+    const [, action, id] = interaction.customId.split("_");
 
-   console.log("===== BUTTON CLICKED =====");
-console.log(interaction.customId);
-
-const [, action, id] = interaction.customId.split("_");
-
-console.log(action);
-console.log(id);
+    console.log("========== BUTTON CLICKED ==========");
+    console.log("Custom ID:", interaction.customId);
+    console.log("Action:", action);
+    console.log("Campaign ID:", id);
+    console.log("Campaigns in Map:", [...campaigns.keys()]);
 
     const campaign = campaigns.get(id);
-
-    console.log("Campaign Found:", !!campaign);
 
     if (!campaign) {
         return interaction.reply({
