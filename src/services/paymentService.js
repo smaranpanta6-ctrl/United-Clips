@@ -50,7 +50,9 @@ export async function savePaymentMethod(
     guildId,
     userId,
     provider,
-    accountEmail
+    accountEmail,
+    username,
+    displayName
 ) {
     await ensurePaymentTables(client);
 
@@ -61,21 +63,27 @@ export async function savePaymentMethod(
         INSERT INTO payment_methods (
             guild_id,
             user_id,
+            username,
+            display_name,
             provider,
             account_email,
             created_at,
             updated_at
         )
-        VALUES ($1, $2, $3, $4, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 
         ON CONFLICT (guild_id, user_id, provider)
         DO UPDATE SET
+            username = EXCLUDED.username,
+            display_name = EXCLUDED.display_name,
             account_email = EXCLUDED.account_email,
             updated_at = NOW()
 
         RETURNING
             guild_id,
             user_id,
+            username,
+            display_name,
             provider,
             account_email,
             created_at,
@@ -84,6 +92,8 @@ export async function savePaymentMethod(
         [
             guildId,
             userId,
+            username,
+            displayName,
             provider.toLowerCase(),
             accountEmail.toLowerCase()
         ]
