@@ -116,9 +116,14 @@ console.log("Type:", activeCategory.type);
 });
 
 // Force it into the Active Campaigns category
-await campaignChannel.setParent(activeCategory.id, {
-    lockPermissions: false
-});
+try {
+    await campaignChannel.setParent(activeCategory.id, {
+        lockPermissions: false
+    });
+    console.log("✅ Channel moved to category successfully.");
+} catch (err) {
+    console.error("❌ Failed to move channel:", err);
+}
 
         campaigns.set(id, {
             id,
