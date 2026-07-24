@@ -100,11 +100,15 @@ export default {
         const activeCategory =
             await interaction.guild.channels.fetch(ACTIVE_CATEGORY_ID);
 
-        if (!activeCategory) {
-            return interaction.editReply({
-                content: "❌ Active Campaigns category not found."
-            });
-        }
+       if (!activeCategory || activeCategory.type !== ChannelType.GuildCategory) {
+    return interaction.editReply({
+        content: "❌ ACTIVE_CATEGORY_ID is not a category."
+    });
+}
+
+console.log("Category:", activeCategory.name);
+console.log("ID:", activeCategory.id);
+console.log("Type:", activeCategory.type);
 
         const campaignChannel = await interaction.guild.channels.create({
     name: channelName,
