@@ -132,6 +132,7 @@ console.log("Expected:", ACTIVE_CATEGORY_ID);
     ...data,
     channel: campaignChannel.id,
     category: null,
+    role: null,
     members: [],
     submissions: 0,
     views: 0,
@@ -237,6 +238,20 @@ if (!campaign) {
            campaign.members.push(interaction.user.id);
 
 await saveCampaign(interaction.client, campaign.id, campaign);
+        let role = interaction.guild.roles.cache.get(campaign.role);
+
+if (!role) {
+    role = await interaction.guild.roles.create({
+        name: campaign.name,
+        mentionable: true,
+        reason: `Campaign role for ${campaign.name}`
+    });
+
+    campaign.role = role.id;
+    await saveCampaign(interaction.client, campaign.id, campaign);
+}
+
+await interaction.member.roles.add(role);
 
 const existingCategory = interaction.guild.channels.cache.get(campaign.category);
 
@@ -413,6 +428,11 @@ if (action === "leave") {
     );
 
     await saveCampaign(interaction.client, campaign.id, campaign);
+    const role = interaction.guild.roles.cache.get(campaign.role);
+
+if (role) {
+    await interaction.member.roles.remove(role).catch(() => {});
+}
 
     // Update campaign embed after leaving
     const campaignChannel = interaction.guild.channels.cache.get(campaign.channel);
