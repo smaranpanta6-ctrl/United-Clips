@@ -69,10 +69,7 @@ export default {
     
 
  async execute(interaction) {
-
-    throw new Error("TEST");
-
-    if (interaction.options.getSubcommand() !== "create") return;
+if (interaction.options.getSubcommand() !== "create") return;
 
     if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
         return interaction.reply({
