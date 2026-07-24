@@ -306,7 +306,7 @@ export default {
               await interaction.respond([]);
             }
           }
-        } } } else if (interaction.isButton()) {
+        }  else if (interaction.isButton()) {
 
     // Campaign buttons
     if (interaction.customId.startsWith("campaign_")) {
