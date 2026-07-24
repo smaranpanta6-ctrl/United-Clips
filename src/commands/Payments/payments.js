@@ -15,21 +15,21 @@ function createPaymentPanelButtons() {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId("payment_link")
-            .setLabel("Link Payment Method")
-            .setEmoji("🔗")
-            .setStyle(ButtonStyle.Success),
+            .setLabel("Add Payout Account")
+            .setEmoji("💳")
+            .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
             .setCustomId("payment_manage")
-            .setLabel("Manage Payment Methods")
-            .setEmoji("📋")
+            .setLabel("My Payout Settings")
+            .setEmoji("⚙️")
             .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
             .setCustomId("payment_balance")
-            .setLabel("Check Balance")
-            .setEmoji("💰")
-            .setStyle(ButtonStyle.Primary)
+            .setLabel("View My Earnings")
+            .setEmoji("📈")
+            .setStyle(ButtonStyle.Success)
     );
 }
 
