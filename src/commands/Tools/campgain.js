@@ -213,14 +213,16 @@ async button(interaction) {
     console.log("Campaign ID:", id);
     console.log("Campaigns in Map:", [...campaigns.keys()]);
 
-    const campaign = await getCampaign(interaction.client, id);
+   const campaign = await getCampaign(interaction.client, id);
 
-    if (!campaign) {
-        return interaction.reply({
-            content: "❌ Campaign not found.",
-            ephemeral: true
-        });
-    }
+console.log("Campaign fetched:", campaign);
+
+if (!campaign) {
+    return interaction.reply({
+        content: "❌ Campaign not found.",
+        ephemeral: true
+    });
+}
 
     if (action === "join") {
 
