@@ -238,7 +238,9 @@ if (!campaign) {
 
 await saveCampaign(interaction.client, campaign.id, campaign);
 
-if (!campaign.category) {
+const existingCategory = interaction.guild.channels.cache.get(campaign.category);
+
+if (!campaign.category || !existingCategory) {
 
                 const category =
                     await interaction.guild.channels.create({
@@ -331,78 +333,152 @@ for (const ch of channels) {
                 const category =
                     interaction.guild.channels.cache.get(campaign.category);
 
-                if (category) {
+               if (category) {
 
-                    await category.permissionOverwrites.create(
-                        const children = interaction.guild.channels.cache.filter(
-    c => c.parentId === category.id
-);
-
-for (const [, channel] of children) {
-    await channel.permissionOverwrites.create(
+    await category.permissionOverwrites.create(
         interaction.user.id,
         {
             ViewChannel: true,
             SendMessages: true
         }
     );
-}
-                        interaction.user.id,
-                        {
-                            ViewChannel: true,
-                            SendMessages: true
-                        }
-                    );
 
-                }
+    const children = interaction.guild.channels.cache.filter(
+        c => c.parentId === category.id
+    );
+
+    for (const [, channel] of children) {
+        await channel.permissionOverwrites.create(
+            interaction.user.id,
+            {
+                ViewChannel: true,
+                SendMessages: true
             }
+        );
+    }
 
-           return interaction.reply({
+}
+
+// Update campaign embed
+const campaignChannel = interaction.guild.channels.cache.get(campaign.channel);
+
+if (campaignChannel) {
+    const message = (await campaignChannel.messages.fetch({ limit: 1 })).first();
+
+    if (message) {
+        const embed = EmbedBuilder.from(message.embeds[0]);
+
+        embed.setDescription(
+`🏷️ **Client**
+${campaign.client}
+
+💰 **Budget**
+${campaign.budget}
+
+📈 **CPM**
+${campaign.cpm}
+
+📅 **Ends**
+${campaign.deadline}
+
+📝 **Description**
+${campaign.description}
+
+🟢 **Status**
+${campaign.status}
+
+👥 **Editors Joined**
+${campaign.members.length}`
+        );
+
+        await message.edit({
+            embeds: [embed]
+        });
+    }
+}
+
+return interaction.reply({
     content: `✅ You have successfully joined **${campaign.name}**!\n\nStart edit and make money.`,
     ephemeral: true
 });
 
-        }
-                if (action === "leave") {
+}
 
-            campaign.members = campaign.members.filter(
-                member => member !== interaction.user.id
+if (action === "leave") {
+
+    campaign.members = campaign.members.filter(
+        member => member !== interaction.user.id
+    );
+
+    await saveCampaign(interaction.client, campaign.id, campaign);
+
+    if (campaign.members.length === 0 && campaign.category) {
+
+        const category = interaction.guild.channels.cache.get(campaign.category);
+
+        if (category) {
+
+            const children = interaction.guild.channels.cache.filter(
+                c => c.parentId === category.id
             );
-await saveCampaign(interaction.client, campaign.id, campaign);
-            if (campaign.category) {
 
-                const category = interaction.guild.channels.cache.get(
-                    campaign.category
-                );
-
-                if (category) {
-
-                    await category.permissionOverwrites.delete(
-                        interaction.user.id
-                    ).catch(() => {});
-
-                    const children =
-                        interaction.guild.channels.cache.filter(
-                            c => c.parentId === category.id
-                        );
-
-                    for (const [, channel] of children) {
-                        await channel.permissionOverwrites.delete(
-                            interaction.user.id
-                        ).catch(() => {});
-                    }
-
-                }
-
+            for (const [, channel] of children) {
+                await channel.delete().catch(() => {});
             }
 
-            return interaction.reply({
-                content: `🚪 You left **${campaign.name}**`,
-                ephemeral: true
-            });
+            await category.delete().catch(() => {});
+        }
+
+        const campaignChannel = interaction.guild.channels.cache.get(campaign.channel);
+
+        if (campaignChannel) {
+            await campaignChannel.delete().catch(() => {});
+        }
+
+        await deleteCampaign(interaction.client, campaign.id);
+
+        return interaction.reply({
+            content: `🚪 You left **${campaign.name}**`,
+            ephemeral: true
+        });
+
+    } else if (campaign.category) {
+
+        const category = interaction.guild.channels.cache.get(campaign.category);
+
+        if (category) {
+
+            await category.permissionOverwrites.delete(
+                interaction.user.id
+            ).catch(() => {});
+
+            const children = interaction.guild.channels.cache.filter(
+                c => c.parentId === category.id
+            );
+
+            for (const [, channel] of children) {
+                await channel.permissionOverwrites.delete(
+                    interaction.user.id
+                ).catch(() => {});
+            }
 
         }
 
+    }
+
+    return interaction.reply({
+        content: `🚪 You left **${campaign.name}**`,
+        ephemeral: true
+    });
+
+}
+
+    return interaction.reply({
+        content: `🚪 You left **${campaign.name}**`,
+        ephemeral: true
+    });
+
+}
         if (action === "status") {
 
             const embed = new EmbedBuilder()
