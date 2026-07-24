@@ -7,12 +7,20 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 export default {
     data: new SlashCommandBuilder()
         .setName('verify')
-        .setDescription('Verify yourself and gain access to the server'),
+       .setDescription('Verify your TikTok account')
 
+.addStringOption(option =>
+    option
+        .setName("username")
+        .setDescription("Your TikTok username (without @)")
+        .setRequired(true)
+),
     async execute(interaction, config, client) {
-        const guild = interaction.guild;
+    const guild = interaction.guild;
 
-        const result = await verifyUser(client, guild.id, interaction.user.id, {
+    const username = interaction.options.getString("username");
+
+    const result = await verifyUser(client, guild.id, interaction.user.id, {
             source: 'command_self',
             moderatorId: null
         });
