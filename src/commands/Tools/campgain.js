@@ -7,6 +7,12 @@ import {
     ButtonBuilder,
     ButtonStyle
 } from "discord.js";
+import {
+    saveMember,
+    getMember,
+    deleteMember,
+    getCampaignMembers
+} from "../../utils/campaignMembers.js";
 
 import {
     saveCampaign,
@@ -238,6 +244,37 @@ if (!campaign) {
            campaign.members.push(interaction.user.id);
 
 await saveCampaign(interaction.client, campaign.id, campaign);
+        await saveMember(
+    interaction.client,
+    campaign.id,
+    interaction.user.id,
+    {
+        campaignId: campaign.id,
+
+        userId: interaction.user.id,
+
+        username: interaction.user.username,
+
+        verified: false,
+
+        tiktok: null,
+
+        clips: [],
+
+        totalViews: 0,
+
+        approvedViews: 0,
+
+        pendingViews: 0,
+
+        rejectedViews: 0,
+
+        payout: 0,
+
+        joinedAt: Date.now()
+    }
+);
+        
         let role = interaction.guild.roles.cache.get(campaign.role);
 
 if (!role) {
@@ -429,7 +466,11 @@ if (action === "leave") {
     campaign.members = campaign.members.filter(
         member => member !== interaction.user.id
     );
-
+await deleteMember(
+    interaction.client,
+    campaign.id,
+    interaction.user.id
+);
     await saveCampaign(interaction.client, campaign.id, campaign);
     const role = interaction.guild.roles.cache.get(campaign.role);
 
