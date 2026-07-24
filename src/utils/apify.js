@@ -1,5 +1,3 @@
-import fetch from "node-fetch";
-
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const APIFY_ACTOR_ID = process.env.APIFY_ACTOR_ID;
 
