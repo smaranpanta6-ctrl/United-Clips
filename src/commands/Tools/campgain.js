@@ -455,34 +455,29 @@ ${campaign.members.length}`
     // Last editor leaves
     if (campaign.members.length === 0 && campaign.category) {
 
-        const category = interaction.guild.channels.cache.get(campaign.category);
+    const category = interaction.guild.channels.cache.get(campaign.category);
 
-        if (category) {
+    if (category) {
 
-            const children = interaction.guild.channels.cache.filter(
-                c => c.parentId === category.id
-            );
+        const children = interaction.guild.channels.cache.filter(
+            c => c.parentId === category.id
+        );
 
-            for (const [, channel] of children) {
-                await channel.delete().catch(() => {});
-            }
-
-            await category.delete().catch(() => {});
+        for (const [, channel] of children) {
+            await channel.delete().catch(() => {});
         }
 
-        const campaignChannel = interaction.guild.channels.cache.get(campaign.channel);
-
-        if (campaignChannel) {
-            await campaignChannel.delete().catch(() => {});
-        }
-
-        await deleteCampaign(interaction.client, campaign.id);
-
-        return interaction.reply({
-            content: `🚪 You left **${campaign.name}**`,
-            ephemeral: true
-        });
+        await category.delete().catch(() => {});
     }
+
+    campaign.category = null;
+    await saveCampaign(interaction.client, campaign.id, campaign);
+
+    return interaction.reply({
+        content: `🚪 You left **${campaign.name}**`,
+        ephemeral: true
+    });
+}
 
     // Remove permissions only
     if (campaign.category) {
