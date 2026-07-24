@@ -504,83 +504,238 @@ return interaction.reply({
 
 } // <-- end JOIN
 
-if (action === "leave") {
+        if (action === "leave") {
+            if (!campaign.members.includes(interaction.user.id)) {
+                return interaction.reply({
+                    content: `❌ You are not currently in **${campaign.name}**.`,
+                    ephemeral: true
+                });
+            }
 
-    campaign.members = campaign.members.filter(
-        member => member !== interaction.user.id
-    );
-await deleteMember(
-    interaction.client,
-    campaign.id,
-    interaction.user.id
-);
-    await saveCampaign(interaction.client, campaign.id, campaign);
-    const role = interaction.guild.roles.cache.get(campaign.role);
+            campaign.members = campaign.members.filter(
+                memberId => memberId !== interaction.user.id
+            );
 
-if (role) {
-    await interaction.member.roles.remove(role).catch(() => {});
-}
+            await deleteMember(
+                interaction.client,
+                campaign.id,
+                interaction.user.id
+            );
 
-    // Update the public campaign post after leaving
-const publicCampaignChannel = interaction.guild.channels.cache.get(
-    campaign.channel
-);
+            const role = interaction.guild.roles.cache.get(campaign.role);
 
-if (publicCampaignChannel) {
-    const message = (
-        await publicCampaignChannel.messages.fetch({ limit: 10 })
-    ).find(msg =>
-        msg.author.id === interaction.client.user.id &&
-        msg.components.some(row =>
-            row.components.some(
-                component =>
-                    component.customId === `campaign_join_${campaign.id}`
-            )
-        )
-    );
+            if (role) {
+                await interaction.member.roles.remove(role).catch(() => {});
+            }
 
-    if (message) {
-        await message.edit({
-            content: buildCampaignPost(campaign),
-            components: [buildCampaignButtons(campaign)]
-        });
-    }
-}
-    // Last editor leaves
-    if (campaign.members.length === 0 && campaign.category) {
+            if (campaign.category) {
+                const category = interaction.guild.channels.cache.get(
+                    campaign.category
+                );
 
-    const category = interaction.guild.channels.cache.get(campaign.category);
+                if (category) {
+                    await category.permissionOverwrites
+                        .delete(interaction.user.id)
+                        .catch(() => {});
 
-    if (category) {
+                    const children =
+                        interaction.guild.channels.cache.filter(
+                            channel => channel.parentId === category.id
+                        );
 
-        const children = interaction.guild.channels.cache.filter(
-            c => c.parentId === category.id
-        );
+                    for (const [, channel] of children) {
+                        await channel.permissionOverwrites
+                            .delete(interaction.user.id)
+                            .catch(() => {});
+                    }
+                }
+            }
 
-        for (const [, channel] of children) {
-            await channel.delete().catch(() => {});
+            if (
+                campaign.members.length === 0 &&
+                campaign.category
+            ) {
+                const category =
+                    interaction.guild.channels.cache.get(
+                        campaign.category
+                    );
+
+                if (category) {
+                    const children =
+                        interaction.guild.channels.cache.filter(
+                            channel => channel.parentId === category.id
+                        );
+
+                    for (const [, channel] of children) {
+                        await channel.delete().catch(() => {});
+                    }
+
+                    await category.delete().catch(() => {});
+                }
+
+                campaign.category = null;
+            }
+
+            await saveCampaign(
+                interaction.client,
+                campaign.id,
+                campaign
+            );
+
+            const publicCampaignChannel =
+                interaction.guild.channels.cache.get(
+                    campaign.channel
+                );
+
+            if (publicCampaignChannel) {
+                const messages =
+                    await publicCampaignChannel.messages.fetch({
+                        limit: 10
+                    });
+
+                const campaignMessage = messages.find(message =>
+                    message.author.id ===
+                        interaction.client.user.id &&
+                    message.components.some(row =>
+                        row.components.some(
+                            component =>
+                                component.customId ===
+                                `campaign_join_${campaign.id}`
+                        )
+                    )
+                );
+
+                if (campaignMessage) {
+                    await campaignMessage.edit({
+                        content: buildCampaignPost(campaign),
+                        components: [
+                            buildCampaignButtons(campaign)
+                        ]
+                    });
+                }
+            }
+
+            return interaction.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("#ED4245")
+                        .setTitle("Campaign Left")
+                        .setDescription(
+                            `You left **${campaign.name}** and your campaign access was removed.`
+                        )
+                        .setTimestamp()
+                ],
+                ephemeral: true
+            });
         }
 
-        await category.delete().catch(() => {});
+        if (action === "status") {
+            const numericBudget =
+                Number(
+                    String(campaign.budget)
+                        .replace(/[$,]/g, "")
+                        .trim()
+                ) || 0;
+
+            const numericPaid =
+                Number(campaign.paid) || 0;
+
+            const remainingBudget = Math.max(
+                0,
+                numericBudget - numericPaid
+            );
+
+            const statusEmbed = new EmbedBuilder()
+                .setColor(
+                    campaign.status === "Active"
+                        ? "#57F287"
+                        : "#747F8D"
+                )
+                .setTitle("📊 Campaign Overview")
+                .setDescription(
+                    `Details for **${campaign.name}**`
+                )
+                .addFields(
+                    {
+                        name: "💰 Budget Remaining",
+                        value: `$${remainingBudget.toLocaleString(
+                            "en-US",
+                            {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            }
+                        )}`,
+                        inline: true
+                    },
+                    {
+                        name: "📈 CPM",
+                        value: String(campaign.cpm),
+                        inline: true
+                    },
+                    {
+                        name: "👥 Members",
+                        value: String(
+                            campaign.members.length
+                        ),
+                        inline: true
+                    },
+                    {
+                        name: "📤 Submissions",
+                        value: String(
+                            campaign.submissions || 0
+                        ),
+                        inline: true
+                    },
+                    {
+                        name: "👀 Total Views",
+                        value: Number(
+                            campaign.views || 0
+                        ).toLocaleString(),
+                        inline: true
+                    },
+                    {
+                        name: "💸 Paid Out",
+                        value: `$${Number(
+                            campaign.paid || 0
+                        ).toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        })}`,
+                        inline: true
+                    },
+                    {
+                        name: "🟢 Status",
+                        value: String(campaign.status),
+                        inline: true
+                    },
+                    {
+                        name: "📅 Deadline",
+                        value: String(campaign.deadline),
+                        inline: true
+                    },
+                    {
+                        name: "🏷️ Client",
+                        value: String(campaign.client),
+                        inline: true
+                    }
+                )
+                .setFooter({
+                    text: `${interaction.guild.name} • Live campaign status`
+                })
+                .setTimestamp();
+
+            return interaction.reply({
+                embeds: [statusEmbed],
+                ephemeral: true
+            });
+        }
+
+        return interaction.reply({
+            content: "❌ Unknown campaign action.",
+            ephemeral: true
+        });
     }
-
-    campaign.category = null;
-    await saveCampaign(interaction.client, campaign.id, campaign);
-
-   return interaction.reply({
-    embeds: [
-        new EmbedBuilder()
-            .setColor("#ED4245")
-            .setTitle("Campaign Left")
-            .setDescription(
-                `You have left **${campaign.name}** and your campaign access has been removed.`
-            )
-            .setTimestamp()
-    ],
-    ephemeral: true
-});
-}
-
+};
     // Remove permissions only
     if (campaign.category) {
 
