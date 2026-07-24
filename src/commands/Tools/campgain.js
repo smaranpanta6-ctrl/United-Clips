@@ -110,16 +110,11 @@ console.log("Category:", activeCategory.name);
 console.log("ID:", activeCategory.id);
 console.log("Type:", activeCategory.type);
 
-        const campaignChannel = await interaction.guild.channels.create({
+       const campaignChannel = await interaction.guild.channels.create({
     name: channelName,
-    type: ChannelType.GuildText
+    type: ChannelType.GuildText,
+    parent: activeCategory.id
 });
-
-// Force it into the Active Campaigns category
-try {
-    await campaignChannel.setParent(activeCategory.id, {
-        lockPermissions: false
-    });
     console.log("✅ Channel moved to category successfully.");
 } catch (err) {
     console.error("❌ Failed to move channel:", err);
