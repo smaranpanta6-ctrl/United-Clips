@@ -127,18 +127,19 @@ console.log("Type:", activeCategory.type);
 console.log("Parent:", campaignChannel.parentId);
 console.log("Expected:", ACTIVE_CATEGORY_ID);
 
-        campaigns.set(id, {
-            id,
-            ...data,
-            channel: campaignChannel.id,
-            category: null,
-            members: [],
-            submissions: 0,
-            views: 0,
-            paid: 0,
-            status: "Active"
-        });
+        const campaign = {
+    id,
+    ...data,
+    channel: campaignChannel.id,
+    category: null,
+    members: [],
+    submissions: 0,
+    views: 0,
+    paid: 0,
+    status: "Active"
+};
 
+await saveCampaign(interaction.client, id, campaign);
         const embed = new EmbedBuilder()
             .setColor("#5865F2")
             .setTitle(`🎵 ${data.name}`)
@@ -203,7 +204,7 @@ async button(interaction) {
     console.log("Campaign ID:", id);
     console.log("Campaigns in Map:", [...campaigns.keys()]);
 
-    const campaign = campaigns.get(id);
+    const campaign = await getCampaign(interaction.client, id);
 
     if (!campaign) {
         return interaction.reply({
