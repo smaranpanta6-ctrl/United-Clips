@@ -278,29 +278,42 @@ if (!campaign) {
                 console.log("Category ID:", category.id);
 
                 const channels = [
-                    "📤-submit",
-                    "📢-announcements",
-                    "💬-chat".
-                    "⚠️rules".
+    "📤-submit",
+    "📢-announcements",
+    "💬-chat",
+    "⚠️-rules"
 ];
 
-                for (const ch of channels) {
+for (const ch of channels) {
 
     console.log("Creating:", ch);
     console.log("Parent:", category.id);
 
     const created = await interaction.guild.channels.create({
-
         name: ch,
-
         type: ChannelType.GuildText,
-
         parent: category.id,
 
         permissionOverwrites: [
-            // keep ALL your existing permissionOverwrites exactly as they are
+            {
+                id: interaction.guild.roles.everyone.id,
+                deny: [PermissionFlagsBits.ViewChannel]
+            },
+            {
+                id: STAFF_ROLE_ID,
+                allow: [
+                    PermissionFlagsBits.ViewChannel,
+                    PermissionFlagsBits.SendMessages
+                ]
+            },
+            {
+                id: interaction.user.id,
+                allow: [
+                    PermissionFlagsBits.ViewChannel,
+                    PermissionFlagsBits.SendMessages
+                ]
+            }
         ]
-
     });
 
     console.log(
