@@ -37,13 +37,16 @@ export default {
         }
 
         const payment = await savePaymentMethod(
-            client,
-            interaction.guild.id,
-            interaction.user.id,
-            "paypal",
-            email
-        );
-
+    client,
+    interaction.guild.id,
+    interaction.user.id,
+    "paypal",
+    paypalEmail,
+    interaction.user.username,
+    interaction.member?.displayName ||
+        interaction.user.globalName ||
+        interaction.user.username
+);
         return interaction.editReply({
             embeds: [
                 new EmbedBuilder()
