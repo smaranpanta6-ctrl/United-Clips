@@ -53,26 +53,26 @@ export default {
         await ensurePaymentTables(client);
 
         const embed = new EmbedBuilder()
-            .setTitle("💸 Manage Your Payment Details")
-            .setDescription(
-                [
-                    "Use the buttons below to manage your payment details.",
-                    "",
-                    "🔗 **Link Payment Method**",
-                    "Connect a new payment method.",
-                    "",
-                    "📋 **Manage Payment Methods**",
-                    "View, update, or unlink your saved payment method.",
-                    "",
-                    "💰 **Check Balance**",
-                    "View your campaign earnings and estimated balance."
-                ].join("\n")
-            )
-            .setColor(getColor("success"))
-            .setFooter({
-                text: `${interaction.guild.name} • Payments`
-            })
-            .setTimestamp();
+    .setTitle("💸 United Clips Payout Center")
+    .setDescription(
+        [
+            "Manage where your campaign earnings are sent and track your current payout balance.",
+            "",
+            "💳 **Add Payout Account**",
+            "Connect or update the PayPal account used for payouts.",
+            "",
+            "⚙️ **My Payout Settings**",
+            "View your linked account or remove it.",
+            "",
+            "📈 **View My Earnings**",
+            "See your campaign earnings and estimated payout."
+        ].join("\n")
+    )
+    .setColor(getColor("success"))
+    .setFooter({
+        text: `${interaction.guild.name} • Secure payouts`
+    })
+    .setTimestamp();
 
         await interaction.channel.send({
             embeds: [embed],
