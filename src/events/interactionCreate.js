@@ -306,25 +306,9 @@ export default {
               await interaction.respond([]);
             }
           }
-        } else if (interaction.isButton()) {
-          if (interaction.customId.startsWith('shared_todo_')) {
-            const parts = interaction.customId.split('_');
-            const buttonType = parts.slice(0, 3).join('_');
-            const listId = parts[3];
-            const button = client.buttons.get(buttonType);
+        } } } else if (interaction.isButton()) {
 
-            if (button) {
-              try {
-                await button.execute(interaction, client, [listId]);
-              } catch (error) {
-                await handleInteractionError(interaction, error, withTraceContext({
-                  type: 'button',
-                  customId: interaction.customId,
-                  handler: 'todo'
-                }, interactionTraceContext));
-              }
-            } else if (interaction.isButton()) {
-
+    // Campaign buttons
     if (interaction.customId.startsWith("campaign_")) {
         const command = client.commands.get("campaign");
 
@@ -333,50 +317,73 @@ export default {
         }
     }
 
+    // Normal button handlers
     const [customId, ...args] = interaction.customId.split(":");
-
     const button = client.buttons.get(customId);
 
-    ...
-}
- if (!button) {
-            if (!interaction.customId.includes(':') || isCollectorManagedComponent(customId)) {
-              return;
-            }
+    if (!button) {
+        if (!interaction.customId.includes(":") || isCollectorManagedComponent(customId)) {
+            return;
+        }
 
-            throw createError(
-              `No button handler found for ${customId}`,
-              ErrorTypes.CONFIGURATION,
-              'This button is not available.',
-              withTraceContext({ customId }, interactionTraceContext)
-            );
-          }
+        throw createError(
+            `No button handler found for ${customId}`,
+            ErrorTypes.CONFIGURATION,
+            "This button is not available.",
+            withTraceContext({ customId }, interactionTraceContext)
+        );
+    }
 
-          try {
-            await button.execute(interaction, client, args);
-          } catch (error) {
-            await handleInteractionError(interaction, error, withTraceContext({
-              type: 'button',
-              customId: interaction.customId,
-              handler: 'general'
-            }, interactionTraceContext));
-          }
-        } else if (interaction.isStringSelectMenu()) {
-          const [customId, ...args] = interaction.customId.split(':');
-          const selectMenu = client.selectMenus.get(customId);
+    try {
+        await button.execute(interaction, client, args);
+    } catch (error) {
+        await handleInteractionError(
+            interaction,
+            error,
+            withTraceContext(
+                {
+                    type: "button",
+                    customId: interaction.customId,
+                    handler: "general",
+                },
+                interactionTraceContext
+            )
+        );
+    }
 
-          if (!selectMenu) {
-            if (!interaction.customId.includes(':') || isCollectorManagedComponent(customId)) {
-              return;
-            }
+} else if (interaction.isStringSelectMenu()) {
 
-            throw createError(
-              `No select menu handler found for ${customId}`,
-              ErrorTypes.CONFIGURATION,
-              'This select menu is not available.',
-              withTraceContext({ customId }, interactionTraceContext)
-            );
-          }
+    const [customId, ...args] = interaction.customId.split(":");
+    const selectMenu = client.selectMenus.get(customId);
+
+    if (!selectMenu) {
+        if (!interaction.customId.includes(":") || isCollectorManagedComponent(customId)) {
+            return;
+        }
+
+        throw createError(
+            `No select menu handler found for ${customId}`,
+            ErrorTypes.CONFIGURATION,
+            "This select menu is not available.",
+            withTraceContext({ customId }, interactionTraceContext)
+        );
+    }
+
+    try {
+        await selectMenu.execute(interaction, client, args);
+    } catch (error) {
+        await handleInteractionError(
+            interaction,
+            error,
+            withTraceContext(
+                {
+                    type: "select_menu",
+                    customId: interaction.customId,
+                },
+                interactionTraceContext
+            )
+        );
+    }
 
           try {
             await selectMenu.execute(interaction, client, args);
