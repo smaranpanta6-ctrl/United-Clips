@@ -293,11 +293,14 @@ if (!campaign.category || !existingCategory) {
 
                     });
 
-                campaign.category = category.id;
-    await saveCampaign(interaction.client, campaign.id, campaign);
-                console.log("Category ID:", category.id);
+               campaign.category = category.id;
+await saveCampaign(interaction.client, campaign.id, campaign);
 
-                const channels = [
+console.log("Category ID:", category.id);
+
+console.log("========== CREATING CAMPAIGN CHANNELS ==========");
+
+const channels = [
     "📤-submit",
     "📢-announcements",
     "💬-chat",
