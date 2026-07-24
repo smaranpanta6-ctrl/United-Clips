@@ -2,34 +2,31 @@ import { PermissionFlagsBits } from "discord.js";
 import { nicheRoles } from "../../config/nicheRoles.js";
 
 export default {
-    customId: "niche_selector",
+    name: "niche_selector",
 
     async execute(interaction) {
         await interaction.deferReply({
             ephemeral: true
         });
 
-        if (!interaction.guild) {
-            return interaction.editReply({
-                content: "❌ This selector can only be used inside a server."
-            });
-        }
-
-        const botMember = interaction.guild.members.me;
-
-        if (!botMember) {
-            return interaction.editReply({
-                content: "❌ I could not find the bot member in this server."
-            });
-        }
-
-        if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-            return interaction.editReply({
-                content: "❌ I need the **Manage Roles** permission."
-            });
-        }
-
         try {
+            if (!interaction.guild) {
+                return interaction.editReply({
+                    content: "❌ This selector only works inside the server."
+                });
+            }
+
+            const botMember = interaction.guild.members.me;
+
+            if (
+                !botMember ||
+                !botMember.permissions.has(PermissionFlagsBits.ManageRoles)
+            ) {
+                return interaction.editReply({
+                    content: "❌ I need the **Manage Roles** permission."
+                });
+            }
+
             const member = await interaction.guild.members.fetch(
                 interaction.user.id
             );
@@ -50,7 +47,7 @@ export default {
                     role = await interaction.guild.roles.create({
                         name: niche.roleName,
                         mentionable: false,
-                        reason: "Created automatically for the UNITED CLIPS niche selector"
+                        reason: "Created by the UNITED CLIPS niche selector"
                     });
                 }
 
@@ -88,17 +85,19 @@ export default {
 
             if (selectedNames.length === 0) {
                 return interaction.editReply({
-                    content: "✅ All of your campaign niche roles were removed."
+                    content: "✅ All of your niche roles were removed."
                 });
             }
 
             return interaction.editReply({
                 content: [
-                    "## Preferences Updated",
+                    "## 🎉 Congratulations — Niches Selected!",
                     "",
-                    "You will now receive alerts for:",
+                    "You will now receive campaign alerts for:",
                     "",
-                    selectedNames.join("\n")
+                    selectedNames.join("\n"),
+                    "",
+                    "You can update your selections at any time."
                 ].join("\n")
             });
         } catch (error) {
@@ -106,9 +105,9 @@ export default {
 
             return interaction.editReply({
                 content: [
-                    "❌ I could not update your campaign roles.",
+                    "❌ I couldn't update your niche roles.",
                     "",
-                    "Make sure my bot role is above the campaign roles and that I have **Manage Roles**."
+                    "Make sure the bot has **Manage Roles** and its role is above all campaign roles."
                 ].join("\n")
             });
         }
