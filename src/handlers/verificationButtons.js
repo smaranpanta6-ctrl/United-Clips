@@ -1,60 +1,123 @@
-import { MessageFlags } from 'discord.js';
-import { successEmbed } from '../utils/embeds.js';
-import { verifyUser } from '../services/verificationService.js';
-import { handleInteractionError, replyUserError, ErrorTypes } from '../utils/errorHandler.js';
-import { logger } from '../utils/logger.js';
-import { InteractionHelper } from '../utils/interactionHelper.js';
+import {
+    ActionRowBuilder,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    MessageFlags
+} from "discord.js";
+
+import { infoEmbed } from "../utils/embeds.js";
+import {
+    createTikTokVerification
+} from "../services/tiktokVerificationService.js";
+import {
+    handleInteractionError,
+    replyUserError,
+    ErrorTypes
+} from "../utils/errorHandler.js";
+import { logger } from "../utils/logger.js";
+import { InteractionHelper } from "../utils/interactionHelper.js";
 
 export async function handleVerificationButton(interaction, client) {
     try {
-        await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
-
         if (!interaction.guild) {
-            return await replyUserError(interaction, { type: ErrorTypes.UNKNOWN, message: 'This button can only be used in a server.' });
+            return await replyUserError(interaction, {
+                type: ErrorTypes.UNKNOWN,
+                message: "This button can only be used inside a server."
+            });
         }
 
-        const guild = interaction.guild;
-        const userId = interaction.user.id;
+        const modalId = `tiktok_verify_modal_${interaction.user.id}`;
 
-        logger.debug('User clicked verify button', {
-            guildId: guild.id,
-            userId,
-            userTag: interaction.user.tag
-        });
+        const usernameInput = new TextInputBuilder()
+            .setCustomId("tiktok_username")
+            .setLabel("Your TikTok username")
+            .setPlaceholder("@username or username")
+            .setStyle(TextInputStyle.Short)
+            .setMinLength(2)
+            .setMaxLength(50)
+            .setRequired(true);
 
-        const result = await verifyUser(client, guild.id, userId, {
-            source: 'button_click',
-            moderatorId: null
-        });
+        const modal = new ModalBuilder()
+            .setCustomId(modalId)
+            .setTitle("Verify your TikTok")
+            .addComponents(
+                new ActionRowBuilder().addComponents(usernameInput)
+            );
 
-        if (result.status === 'already_verified') {
-            return await replyUserError(interaction, { type: ErrorTypes.VALIDATION, message: 'You are already verified and have access to all server channels.' });
+        // A modal must be shown before deferring the interaction.
+        await interaction.showModal(modal);
+
+        const submitted = await interaction
+            .awaitModalSubmit({
+                filter: modalInteraction =>
+                    modalInteraction.customId === modalId &&
+                    modalInteraction.user.id === interaction.user.id,
+                time: 120_000
+            })
+            .catch(() => null);
+
+        if (!submitted) {
+            return;
         }
 
-        logger.info('User verified via button', {
-            guildId: guild.id,
-            userId,
-            roleName: result.roleName
+        await InteractionHelper.safeDefer(submitted, {
+            flags: MessageFlags.Ephemeral
         });
 
-        await InteractionHelper.safeEditReply(interaction, {
-            embeds: [successEmbed(
-                "✅ Verification Successful!",
-                `You have been verified and given the **${result.roleName}** role!\n\nYou now have access to all server channels and features. Welcome! 🎉`
-            )],
+        const username = submitted.fields
+            .getTextInputValue("tiktok_username")
+            .trim();
+
+        const record = await createTikTokVerification(
+            client,
+            submitted.user.id,
+            username
+        );
+
+        logger.info("TikTok verification started", {
+            guildId: submitted.guild.id,
+            userId: submitted.user.id,
+            username: record.username
+        });
+
+        return await InteractionHelper.safeEditReply(submitted, {
+            embeds: [
+                infoEmbed(
+                    "📱 TikTok Verification Started",
+                    [
+                        `TikTok account: **@${record.username}**`,
+                        "",
+                        "Put this exact code anywhere in your TikTok bio:",
+                        "",
+                        `\`${record.verification_code}\``,
+                        "",
+                        "After saving your TikTok bio, wait about 30–60 seconds.",
+                        "",
+                        "Then run:",
+                        "",
+                        "`/verify check`",
+                        "",
+                        "Do not click the verification button again, because it will generate a new code."
+                    ].join("\n")
+                )
+            ]
         });
 
     } catch (error) {
-        logger.error('Error in verification button handler', {
+        logger.error("Error in TikTok verification button handler", {
             error: error.message,
             guildId: interaction.guild?.id,
-            userId: interaction.user.id
+            userId: interaction.user?.id
         });
 
         await handleInteractionError(
             interaction,
             error,
-            { command: 'verify_button', action: 'verification' }
+            {
+                command: "verify_button",
+                action: "tiktok_verification_start"
+            }
         );
     }
 }
