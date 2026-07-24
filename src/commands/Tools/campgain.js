@@ -106,16 +106,15 @@ export default {
             });
         }
 
-        const campaignChannel =
-            await interaction.guild.channels.create({
+        const campaignChannel = await interaction.guild.channels.create({
+    name: channelName,
+    type: ChannelType.GuildText
+});
 
-                name: channelName,
-
-                type: ChannelType.GuildText,
-
-                parent: activeCategory.id
-
-            });
+// Force it into the Active Campaigns category
+await campaignChannel.setParent(activeCategory.id, {
+    lockPermissions: false
+});
 
         campaigns.set(id, {
             id,
