@@ -123,10 +123,9 @@ console.log("Expected:", ACTIVE_CATEGORY_ID);
     type: ChannelType.GuildText,
     parent: activeCategory.id
 });
-    console.log("✅ Channel moved to category successfully.");
-} catch (err) {
-    console.error("❌ Failed to move channel:", err);
-}
+
+console.log("Parent:", campaignChannel.parentId);
+console.log("Expected:", ACTIVE_CATEGORY_ID);
 
         campaigns.set(id, {
             id,
