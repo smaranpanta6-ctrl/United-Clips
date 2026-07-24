@@ -13,7 +13,7 @@ import {
     getCampaign,
     deleteCampaign,
     getAllCampaigns
-} from "../../database.js";
+} from "../../utils/database.js";
 
 console.log("🔥 CAMPAIGN COMMAND LOADED 🔥");
 
