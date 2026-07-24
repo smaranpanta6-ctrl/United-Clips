@@ -7,7 +7,7 @@ import {
     ButtonBuilder,
     ButtonStyle
 } from "discord.js";
-
+console.log("🔥 CAMPAIGN COMMAND LOADED 🔥");
 const STAFF_ROLE_ID = "1529961495402778771";
 const ACTIVE_CATEGORY_ID = "1529961507062812752";
 
