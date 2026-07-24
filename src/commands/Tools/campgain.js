@@ -275,26 +275,40 @@ if (!campaign) {
                     });
 
                 campaign.category = category.id;
+                console.log("Category ID:", category.id);
 
                 const channels = [
-                    "information",
-                    "rules",
-                    "resources",
-                    "chat",
-                    "viral-examples"
-                ];
+                    "📤-submit",
+                    "📢-announcements",
+                    "💬-chat".
+                    "⚠️rules".
+];
 
                 for (const ch of channels) {
 
-                    await interaction.guild.channels.create({
+    console.log("Creating:", ch);
+    console.log("Parent:", category.id);
 
-                        name: ch,
+    const created = await interaction.guild.channels.create({
 
-                        type: ChannelType.GuildText,
+        name: ch,
 
-                        parent: category.id,
+        type: ChannelType.GuildText,
 
-                        permissionOverwrites: [
+        parent: category.id,
+
+        permissionOverwrites: [
+            // keep ALL your existing permissionOverwrites exactly as they are
+        ]
+
+    });
+
+    console.log(
+        created.name,
+        "parentId =",
+        created.parentId
+    );
+}
 
                             {
                                 id: interaction.guild.roles.everyone.id,
