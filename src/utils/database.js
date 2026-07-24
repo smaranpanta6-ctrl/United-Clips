@@ -1194,3 +1194,35 @@ formatted = formatted.substring(0, 100);
 function generateCaseId() {
     return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 4)}`;
 }
+// =======================
+// CAMPAIGN DATABASE
+// =======================
+
+const CAMPAIGN_PREFIX = "campaigns:";
+
+export async function saveCampaign(client, id, data) {
+    return await client.db.set(`${CAMPAIGN_PREFIX}${id}`, data);
+}
+
+export async function getCampaign(client, id) {
+    return await client.db.get(`${CAMPAIGN_PREFIX}${id}`, null);
+}
+
+export async function deleteCampaign(client, id) {
+    return await client.db.delete(`${CAMPAIGN_PREFIX}${id}`);
+}
+
+export async function getAllCampaigns(client) {
+    const keys = await client.db.list(CAMPAIGN_PREFIX);
+
+    if (!Array.isArray(keys)) return [];
+
+    const campaigns = [];
+
+    for (const key of keys) {
+        const campaign = await client.db.get(key);
+        if (campaign) campaigns.push(campaign);
+    }
+
+    return campaigns;
+}
