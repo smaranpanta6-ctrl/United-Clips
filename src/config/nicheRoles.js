@@ -3,36 +3,36 @@ export const nicheRoles = [
         value: "all_campaigns",
         label: "All Campaigns",
         roleName: "All Campaigns",
-        description: "Receive alerts for every campaign",
-        emoji: "✦"
+        description: "Receive notifications for every campaign",
+        emoji: "👀"
     },
     {
         value: "edit_campaigns",
-        label: "Editing",
+        label: "Editing Campaigns",
         roleName: "Editing Campaigns",
         description: "Campaigns involving edited content",
-        emoji: "◈"
+        emoji: "🖱️"
     },
     {
         value: "clipping",
-        label: "Clipping",
+        label: "Clipping Campaigns",
         roleName: "Clipping Campaigns",
         description: "Stream and video clipping opportunities",
-        emoji: "✂️"
+        emoji: "📎"
     },
     {
         value: "tv_film",
-        label: "TV & Film",
-        roleName: "TV & Film Campaigns",
+        label: "TV and Film",
+        roleName: "TV and Film Campaigns",
         description: "Movies, television and entertainment",
-        emoji: "🎞️"
+        emoji: "📺"
     },
     {
         value: "fancam_celeb",
-        label: "Fancams & Celebrities",
-        roleName: "Fancam & Celebrity Campaigns",
+        label: "Fancams and Celebrities",
+        roleName: "Fancam and Celebrity Campaigns",
         description: "Artists, actors, creators and models",
-        emoji: "✧"
+        emoji: "😎"
     },
     {
         value: "gaming",
@@ -45,8 +45,8 @@ export const nicheRoles = [
         value: "music",
         label: "Music",
         roleName: "Music Campaigns",
-        description: "Artists, releases and music campaigns",
-        emoji: "♫"
+        description: "Artists, songs and music opportunities",
+        emoji: "🎵"
     },
     {
         value: "sports",
