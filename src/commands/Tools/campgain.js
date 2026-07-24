@@ -27,6 +27,49 @@ const STAFF_ROLE_ID = "1529961495402778771";
 const ACTIVE_CATEGORY_ID = "1529961507062812752";
 
 const campaigns = new Map();
+function buildCampaignPost(campaign) {
+    return [
+        `# ${campaign.name}`,
+        campaign.description,
+        "",
+        "## 📋 Campaign Details",
+        `**Client:** ${campaign.client}`,
+        `**Platforms:** TikTok, Instagram, YouTube`,
+        `**Deadline:** ${campaign.deadline}`,
+        "",
+        "## 💸 Payment Details",
+        `**Budget:** ${campaign.budget}`,
+        `**CPM:** ${campaign.cpm}`,
+        "",
+        "## 🚀 Join the Campaign",
+        "Join below to unlock the campaign workspace, submission channel, announcements, and chat.",
+        "",
+        `**Members Joined:** ${campaign.members?.length || 0}`,
+        `**Status:** ${campaign.status === "Active" ? "🟢 Active" : "⚫ Closed"}`
+    ].join("\n");
+}
+
+function buildCampaignButtons(campaign) {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`campaign_join_${campaign.id}`)
+            .setLabel("Join")
+            .setEmoji("🚀")
+            .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+            .setCustomId(`campaign_status_${campaign.id}`)
+            .setLabel("View Status")
+            .setEmoji("📊")
+            .setStyle(ButtonStyle.Primary),
+
+        new ButtonBuilder()
+            .setCustomId(`campaign_leave_${campaign.id}`)
+            .setLabel("Leave")
+            .setEmoji("↩️")
+            .setStyle(ButtonStyle.Secondary)
+    );
+}
 
 export default {
     data: new SlashCommandBuilder()
@@ -156,54 +199,10 @@ console.log("Raw DB:", raw);
 
 const loaded = await getCampaign(interaction.client, id);
 console.log("Loaded Campaign:", loaded);
-        const embed = new EmbedBuilder()
-            .setColor("#5865F2")
-            .setTitle(`🎵 ${data.name}`)
-            .setDescription(
-`🏷️ **Client**
-${data.client}
-
-💰 **Budget**
-${data.budget}
-
-📈 **CPM**
-${data.cpm}
-
-📅 **Ends**
-${data.deadline}
-
-📝 **Description**
-${data.description}
-
-🟢 **Status**
-Active
-
-👥 **Editors Joined**
-0`
-            );
-                const buttons = new ActionRowBuilder().addComponents(
-
-            new ButtonBuilder()
-                .setCustomId(`campaign_join_${id}`)
-                .setLabel("🎬 JOIN")
-                .setStyle(ButtonStyle.Success),
-
-            new ButtonBuilder()
-                .setCustomId(`campaign_leave_${id}`)
-                .setLabel("🚪 LEAVE")
-                .setStyle(ButtonStyle.Danger),
-
-            new ButtonBuilder()
-                .setCustomId(`campaign_status_${id}`)
-                .setLabel("📊 STATUS")
-                .setStyle(ButtonStyle.Primary)
-
-        );
-
         await campaignChannel.send({
-            embeds: [embed],
-            components: [buttons]
-        });
+    content: buildCampaignPost(campaign),
+    components: [buildCampaignButtons(campaign)]
+});
 
         await interaction.editReply({
             content: `✅ Campaign created: ${campaignChannel}`
@@ -416,46 +415,94 @@ for (const ch of channels) {
 
 } 
 
-// Update campaign embed
-const campaignChannel = interaction.guild.channels.cache.get(campaign.channel);
+// Update the public campaign post after joining
+const publicCampaignChannel = interaction.guild.channels.cache.get(
+    campaign.channel
+);
 
-if (campaignChannel) {
-    const message = (await campaignChannel.messages.fetch({ limit: 1 })).first();
+if (publicCampaignChannel) {
+    const message = (
+        await publicCampaignChannel.messages.fetch({ limit: 10 })
+    ).find(msg =>
+        msg.author.id === interaction.client.user.id &&
+        msg.components.some(row =>
+            row.components.some(
+                component =>
+                    component.customId === `campaign_join_${campaign.id}`
+            )
+        )
+    );
 
     if (message) {
-        const embed = EmbedBuilder.from(message.embeds[0]);
-
-        embed.setDescription(
-`🏷️ **Client**
-${campaign.client}
-
-💰 **Budget**
-${campaign.budget}
-
-📈 **CPM**
-${campaign.cpm}
-
-📅 **Ends**
-${campaign.deadline}
-
-📝 **Description**
-${campaign.description}
-
-🟢 **Status**
-${campaign.status}
-
-👥 **Editors Joined**
-${campaign.members.length}`
-        );
-
         await message.edit({
-            embeds: [embed]
+            content: buildCampaignPost(campaign),
+            components: [buildCampaignButtons(campaign)]
         });
     }
 }
 
+const category = interaction.guild.channels.cache.get(campaign.category);
+
+const firstCampaignChannel = category
+    ? interaction.guild.channels.cache.find(
+        channel =>
+            channel.parentId === category.id &&
+            channel.type === ChannelType.GuildText
+    )
+    : null;
+
+const joinEmbed = new EmbedBuilder()
+    .setColor("#57F287")
+    .setTitle("You're In")
+    .setDescription(
+        [
+            `You successfully joined **${campaign.name}**.`,
+            "",
+            "Your private campaign workspace has been unlocked.",
+            "Read the rules and campaign instructions before submitting content."
+        ].join("\n")
+    )
+    .addFields(
+        {
+            name: "Client",
+            value: campaign.client,
+            inline: true
+        },
+        {
+            name: "CPM",
+            value: campaign.cpm,
+            inline: true
+        },
+        {
+            name: "Deadline",
+            value: campaign.deadline,
+            inline: true
+        }
+    )
+    .setFooter({
+        text: `${interaction.guild.name} • Campaign access granted`
+    })
+    .setTimestamp();
+
+const joinComponents = [];
+
+if (firstCampaignChannel) {
+    joinComponents.push(
+        new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setLabel("Open Campaign Workspace")
+                .setEmoji("↗️")
+                .setStyle(ButtonStyle.Link)
+                .setURL(
+                    `https://discord.com/channels/${interaction.guild.id}/${firstCampaignChannel.id}`
+                )
+        )
+    );
+}
+
 return interaction.reply({
-    content: `✅ You have successfully joined **${campaign.name}**!\n\nStart edit and make money.`,
+    embeds: [joinEmbed],
+    components: joinComponents,
     ephemeral: true
 });
 
@@ -478,44 +525,31 @@ if (role) {
     await interaction.member.roles.remove(role).catch(() => {});
 }
 
-    // Update campaign embed after leaving
-    const campaignChannel = interaction.guild.channels.cache.get(campaign.channel);
+    // Update the public campaign post after leaving
+const publicCampaignChannel = interaction.guild.channels.cache.get(
+    campaign.channel
+);
 
-    if (campaignChannel) {
-        const message = (await campaignChannel.messages.fetch({ limit: 1 })).first();
+if (publicCampaignChannel) {
+    const message = (
+        await publicCampaignChannel.messages.fetch({ limit: 10 })
+    ).find(msg =>
+        msg.author.id === interaction.client.user.id &&
+        msg.components.some(row =>
+            row.components.some(
+                component =>
+                    component.customId === `campaign_join_${campaign.id}`
+            )
+        )
+    );
 
-        if (message) {
-            const embed = EmbedBuilder.from(message.embeds[0]);
-
-            embed.setDescription(
-`🏷️ **Client**
-${campaign.client}
-
-💰 **Budget**
-${campaign.budget}
-
-📈 **CPM**
-${campaign.cpm}
-
-📅 **Ends**
-${campaign.deadline}
-
-📝 **Description**
-${campaign.description}
-
-🟢 **Status**
-${campaign.status}
-
-👥 **Editors Joined**
-${campaign.members.length}`
-            );
-
-            await message.edit({
-                embeds: [embed]
-            });
-        }
+    if (message) {
+        await message.edit({
+            content: buildCampaignPost(campaign),
+            components: [buildCampaignButtons(campaign)]
+        });
     }
-
+}
     // Last editor leaves
     if (campaign.members.length === 0 && campaign.category) {
 
@@ -537,10 +571,18 @@ ${campaign.members.length}`
     campaign.category = null;
     await saveCampaign(interaction.client, campaign.id, campaign);
 
-    return interaction.reply({
-        content: `🚪 You left **${campaign.name}**`,
-        ephemeral: true
-    });
+   return interaction.reply({
+    embeds: [
+        new EmbedBuilder()
+            .setColor("#ED4245")
+            .setTitle("Campaign Left")
+            .setDescription(
+                `You have left **${campaign.name}** and your campaign access has been removed.`
+            )
+            .setTimestamp()
+    ],
+    ephemeral: true
+});
 }
 
     // Remove permissions only
@@ -566,49 +608,98 @@ ${campaign.members.length}`
 
     }
 
-    return interaction.reply({
-        content: `🚪 You left **${campaign.name}**`,
-        ephemeral: true
-    });
+   return interaction.reply({
+    embeds: [
+        new EmbedBuilder()
+            .setColor("#ED4245")
+            .setTitle("Campaign Left")
+            .setDescription(
+                `You have left **${campaign.name}** and your campaign access has been removed.`
+            )
+            .setTimestamp()
+    ],
+    ephemeral: true
+});
 
 } // <-- end LEAVE
         if (action === "status") {
+    const numericBudget =
+        Number(
+            String(campaign.budget)
+                .replace(/[$,]/g, "")
+                .trim()
+        ) || 0;
 
-            const embed = new EmbedBuilder()
+    const numericPaid = Number(campaign.paid) || 0;
+    const remainingBudget = Math.max(0, numericBudget - numericPaid);
 
-                .setColor("Green")
+    const statusEmbed = new EmbedBuilder()
+        .setColor(campaign.status === "Active" ? "#57F287" : "#747F8D")
+        .setTitle("📊 Campaign Overview")
+        .setDescription(`Details for **${campaign.name}**`)
+        .addFields(
+            {
+                name: "💰 Budget Remaining",
+                value: `$${remainingBudget.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                })}`,
+                inline: true
+            },
+            {
+                name: "📈 CPM",
+                value: campaign.cpm,
+                inline: true
+            },
+            {
+                name: "👥 Members",
+                value: `${campaign.members.length}`,
+                inline: true
+            },
+            {
+                name: "📤 Submissions",
+                value: `${campaign.submissions || 0}`,
+                inline: true
+            },
+            {
+                name: "👀 Total Views",
+                value: Number(campaign.views || 0).toLocaleString(),
+                inline: true
+            },
+            {
+                name: "💸 Paid Out",
+                value: `$${Number(campaign.paid || 0).toLocaleString(
+                    "en-US",
+                    {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }
+                )}`,
+                inline: true
+            },
+            {
+                name: "🟢 Status",
+                value: campaign.status,
+                inline: true
+            },
+            {
+                name: "📅 Deadline",
+                value: campaign.deadline,
+                inline: true
+            },
+            {
+                name: "🏷️ Client",
+                value: campaign.client,
+                inline: true
+            }
+        )
+        .setFooter({
+            text: `${interaction.guild.name} • Live campaign status`
+        })
+        .setTimestamp();
 
-                .setTitle(`📊 ${campaign.name}`)
-
-                .setDescription(`
-
-👥 **Editors Joined**
-${campaign.members.length}
-
-📤 **Submissions**
-${campaign.submissions}
-
-👀 **Views**
-${campaign.views}
-
-💸 **Paid**
-$${campaign.paid}
-
-🟢 **Status**
-${campaign.status}
-
-📅 **Deadline**
-${campaign.deadline}
-
-                `);
-
-            return interaction.reply({
-                embeds: [embed],
-                ephemeral: true
-            });
-
-        }
-
-    }
-
-};
+    return interaction.reply({
+        embeds: [statusEmbed],
+        ephemeral: true
+    });
+}
