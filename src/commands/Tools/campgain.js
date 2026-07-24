@@ -328,36 +328,38 @@ for (const ch of channels) {
     );
 }
 
-            } else {
+           } else {
 
-                const category =
-                    interaction.guild.channels.cache.get(campaign.category);
+    const category =
+        interaction.guild.channels.cache.get(campaign.category);
 
-               if (category) {
+    if (category) {
 
-    await category.permissionOverwrites.create(
-        interaction.user.id,
-        {
-            ViewChannel: true,
-            SendMessages: true
-        }
-    );
-
-    const children = interaction.guild.channels.cache.filter(
-        c => c.parentId === category.id
-    );
-
-    for (const [, channel] of children) {
-        await channel.permissionOverwrites.create(
+        await category.permissionOverwrites.create(
             interaction.user.id,
             {
                 ViewChannel: true,
                 SendMessages: true
             }
         );
+
+        const children = interaction.guild.channels.cache.filter(
+            c => c.parentId === category.id
+        );
+
+        for (const [, channel] of children) {
+            await channel.permissionOverwrites.create(
+                interaction.user.id,
+                {
+                    ViewChannel: true,
+                    SendMessages: true
+                }
+            );
+        }
+
     }
 
-}
+} 
 
 // Update campaign embed
 const campaignChannel = interaction.guild.channels.cache.get(campaign.channel);
@@ -466,17 +468,10 @@ if (action === "leave") {
 
     }
 
-    return interaction.reply({
-        content: `🚪 You left **${campaign.name}**`,
-        ephemeral: true
-    });
-
-}
-
-    return interaction.reply({
-        content: `🚪 You left **${campaign.name}**`,
-        ephemeral: true
-    });
+    rreturn interaction.reply({
+    content: `🚪 You left **${campaign.name}**`,
+    ephemeral: true
+});
 
 }
         if (action === "status") {
