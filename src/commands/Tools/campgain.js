@@ -234,9 +234,11 @@ if (!campaign) {
         }
 
         // leave the rest of your code exactly the same...
-            campaign.members.push(interaction.user.id);
+           campaign.members.push(interaction.user.id);
 
-            if (!campaign.category) {
+await saveCampaign(interaction.client, campaign.id, campaign);
+
+if (!campaign.category) {
 
                 const category =
                     await interaction.guild.channels.create({
@@ -341,10 +343,10 @@ for (const ch of channels) {
                 }
             }
 
-            return interaction.reply({
-                content: `✅ You joined **${campaign.name}**`,
-                ephemeral: true
-            });
+           return interaction.reply({
+    content: `✅ You have successfully joined **${campaign.name}**!\n\nStart edit and make money.`,
+    ephemeral: true
+});
 
         }
                 if (action === "leave") {
