@@ -404,7 +404,7 @@ return interaction.reply({
     ephemeral: true
 });
 
-}
+} // <-- end JOIN
 
 if (action === "leave") {
 
@@ -414,6 +414,45 @@ if (action === "leave") {
 
     await saveCampaign(interaction.client, campaign.id, campaign);
 
+    // Update campaign embed after leaving
+    const campaignChannel = interaction.guild.channels.cache.get(campaign.channel);
+
+    if (campaignChannel) {
+        const message = (await campaignChannel.messages.fetch({ limit: 1 })).first();
+
+        if (message) {
+            const embed = EmbedBuilder.from(message.embeds[0]);
+
+            embed.setDescription(
+`🏷️ **Client**
+${campaign.client}
+
+💰 **Budget**
+${campaign.budget}
+
+📈 **CPM**
+${campaign.cpm}
+
+📅 **Ends**
+${campaign.deadline}
+
+📝 **Description**
+${campaign.description}
+
+🟢 **Status**
+${campaign.status}
+
+👥 **Editors Joined**
+${campaign.members.length}`
+            );
+
+            await message.edit({
+                embeds: [embed]
+            });
+        }
+    }
+
+    // Last editor leaves
     if (campaign.members.length === 0 && campaign.category) {
 
         const category = interaction.guild.channels.cache.get(campaign.category);
@@ -443,16 +482,16 @@ if (action === "leave") {
             content: `🚪 You left **${campaign.name}**`,
             ephemeral: true
         });
+    }
 
-    } else if (campaign.category) {
+    // Remove permissions only
+    if (campaign.category) {
 
         const category = interaction.guild.channels.cache.get(campaign.category);
 
         if (category) {
 
-            await category.permissionOverwrites.delete(
-                interaction.user.id
-            ).catch(() => {});
+            await category.permissionOverwrites.delete(interaction.user.id).catch(() => {});
 
             const children = interaction.guild.channels.cache.filter(
                 c => c.parentId === category.id
@@ -468,12 +507,12 @@ if (action === "leave") {
 
     }
 
-    rreturn interaction.reply({
-    content: `🚪 You left **${campaign.name}**`,
-    ephemeral: true
-});
+    return interaction.reply({
+        content: `🚪 You left **${campaign.name}**`,
+        ephemeral: true
+    });
 
-}
+} // <-- end LEAVE
         if (action === "status") {
 
             const embed = new EmbedBuilder()
