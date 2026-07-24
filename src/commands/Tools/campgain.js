@@ -140,6 +140,9 @@ console.log("Expected:", ACTIVE_CATEGORY_ID);
 };
 
 await saveCampaign(interaction.client, id, campaign);
+     const test = await getCampaign(interaction.client, id);
+console.log("Campaign ID:", id);
+console.log("Campaign after save:", test);
         const embed = new EmbedBuilder()
             .setColor("#5865F2")
             .setTitle(`🎵 ${data.name}`)
