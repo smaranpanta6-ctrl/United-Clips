@@ -277,6 +277,7 @@ if (!campaign.category) {
                     });
 
                 campaign.category = category.id;
+    await saveCampaign(interaction.client, campaign.id, campaign);
                 console.log("Category ID:", category.id);
 
                 const channels = [
@@ -333,6 +334,19 @@ for (const ch of channels) {
                 if (category) {
 
                     await category.permissionOverwrites.create(
+                        const children = interaction.guild.channels.cache.filter(
+    c => c.parentId === category.id
+);
+
+for (const [, channel] of children) {
+    await channel.permissionOverwrites.create(
+        interaction.user.id,
+        {
+            ViewChannel: true,
+            SendMessages: true
+        }
+    );
+}
                         interaction.user.id,
                         {
                             ViewChannel: true,
@@ -354,7 +368,7 @@ for (const ch of channels) {
             campaign.members = campaign.members.filter(
                 member => member !== interaction.user.id
             );
-
+await saveCampaign(interaction.client, campaign.id, campaign);
             if (campaign.category) {
 
                 const category = interaction.guild.channels.cache.get(
