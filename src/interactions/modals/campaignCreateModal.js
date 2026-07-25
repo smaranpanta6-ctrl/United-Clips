@@ -1,6 +1,5 @@
 import {
     ChannelType,
-    EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle
@@ -58,37 +57,27 @@ function splitDetails(value) {
     };
 }
 
-function buildCampaignEmbed(campaign) {
-    return new EmbedBuilder()
-        .setColor("#57F287")
-        .setAuthor({
-            name: `${campaign.emoji || "🎬"} ${campaign.name}`
-        })
-        .setTitle("Track Your Campaign Clips")
-        .setDescription(
-            [
-                campaign.description,
-                "",
-                "### 🚀 Join Campaign",
-                "Unlock the private campaign workspace.",
-                "",
-                "### 📊 View Live Details",
-                "Check current members, submissions, views, budget, and payouts.",
-                "",
-                "### ↩️ Leave Campaign",
-                "Remove your campaign role and workspace access."
-            ].join("\n")
-        )
-        .addFields(
-            {
-                name: "📋 Campaign Details",
-                value: [
-                    `**Client:** ${campaign.client}`,
-                    `**Platform:** ${campaign.platform}`,
-                    `**Deadline:** ${campaign.deadline}`
-                ].join("\n"),
-                inline: true
-            },
+function buildCampaignContent(campaign) {
+    return [
+        `## ${campaign.emoji || "🎬"} Get Paid To Post ${campaign.name} Edits!`,
+        "",
+        "Click **Join Campaign** below to start earning.",
+        "",
+        "### 📝 Campaign Info",
+        "",
+        `• **Client:** ${campaign.client}`,
+        `• **CPM:** ${campaign.cpm} per 1,000 views`,
+        `• **Budget:** ${campaign.budget}`,
+        `• **Deadline:** ${campaign.deadline}`,
+        `• **Platform:** ${campaign.platform}`,
+        "",
+        "### Brief",
+        "",
+        campaign.description,
+        "",
+        "## 👇 JOIN BELOW TO START EARNING"
+    ].join("\n");
+}
             {
                 name: "💸 Payment Details",
                 value: [
@@ -250,14 +239,12 @@ export default {
                 campaign
             );
 
-            await campaignChannel.send({
-                embeds: [
-                    buildCampaignEmbed(campaign)
-                ],
-                components: [
-                    buildCampaignButtons(campaign)
-                ]
-            });
+           await campaignChannel.send({
+    content: buildCampaignContent(campaign),
+    components: [
+        buildCampaignButtons(campaign)
+    ]
+});
 
             return interaction.editReply({
                 content: [
