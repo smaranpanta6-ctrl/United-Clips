@@ -72,6 +72,13 @@ function buildCampaignButtons(campaign) {
             .setDisabled(isClosed),
 
         new ButtonBuilder()
+            .setCustomId(`submit_clip:${campaign.id}`)
+            .setLabel("Submit Clip")
+            .setEmoji("📤")
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(isClosed),
+
+        new ButtonBuilder()
             .setCustomId(`campaign_status_${campaign.id}`)
             .setLabel("View Status")
             .setEmoji("📊")
@@ -84,29 +91,6 @@ function buildCampaignButtons(campaign) {
             .setStyle(ButtonStyle.Secondary)
     );
 }
-
-function buildLeaveEmbed(campaign) {
-    return new EmbedBuilder()
-        .setColor("#ED4245")
-        .setTitle("Campaign Left")
-        .setDescription(
-            `You left **${campaign.name}** and your campaign access was removed.`
-        )
-        .setTimestamp();
-}
-
-async function findPublicCampaignMessage(interaction, campaign) {
-    const channel = interaction.guild.channels.cache.get(
-        campaign.channel
-    );
-
-    if (!channel || !channel.isTextBased()) {
-        return null;
-    }
-
-    const messages = await channel.messages.fetch({
-        limit: 25
-    });
 
     return (
         messages.find(message =>
