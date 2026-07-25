@@ -193,10 +193,10 @@ function buildWorkspaceButtons(campaign) {
             .setStyle(ButtonStyle.Success),
 
         new ButtonBuilder()
-            .setCustomId(`campaign_status_${campaign.id}`)
-            .setLabel("My Stats")
-            .setEmoji("📊")
-            .setStyle(ButtonStyle.Primary),
+    .setCustomId(`campaign_mystats_${campaign.id}`)
+    .setLabel("My Stats")
+    .setEmoji("📊")
+    .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
             .setCustomId(`campaign_leave_${campaign.id}`)
@@ -922,29 +922,34 @@ export default {
         }
 
         if (action === "join") {
-            return handleJoin(
-                interaction,
-                campaign
-            );
-        }
+    return handleJoin(
+        interaction,
+        campaign
+    );
+}
 
-        if (action === "leave") {
-            return handleLeave(
-                interaction,
-                campaign
-            );
-        }
+if (action === "leave") {
+    return handleLeave(
+        interaction,
+        campaign
+    );
+}
 
-        if (action === "status") {
-            return handleStatus(
-                interaction,
-                campaign
-            );
-        }
+if (action === "status") {
+    return handleStatus(
+        interaction,
+        campaign
+    );
+}
 
-        return interaction.reply({
-            content: "❌ Unknown campaign action.",
-            ephemeral: true
-        });
-    }
-};
+if (action === "mystats") {
+    return handleMyStats(
+        interaction,
+        campaign
+    );
+}
+
+return interaction.reply({
+    content: "❌ Unknown campaign action.",
+    ephemeral: true
+});
