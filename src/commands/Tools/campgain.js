@@ -33,28 +33,23 @@ const CAMPAIGN_CHANNEL_NAMES = [
     "⚠️-rules"
 ];
 
-/*
-|--------------------------------------------------------------------------
-| HELPERS
-|--------------------------------------------------------------------------
-*/
+function memberCount(campaign) {
+    return Array.isArray(campaign.members)
+        ? campaign.members.length
+        : 0;
+}
 
-function cleanChannelName(name) {
-    return String(name)
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .trim()
-        .replace(/\s+/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 80);
+function moneyNumber(value) {
+    return (
+        Number(
+            String(value ?? 0)
+                .replace(/[$,]/g, "")
+                .trim()
+        ) || 0
+    );
 }
 
 function buildCampaignEmbed(campaign) {
-    const members = Array.isArray(campaign.members)
-        ? campaign.members.length
-        : 0;
-
     const emoji = campaign.emoji || "🎬";
 
     return new EmbedBuilder()
@@ -63,27 +58,37 @@ function buildCampaignEmbed(campaign) {
                 ? "#57F287"
                 : "#747F8D"
         )
-        .setTitle(
-            `${emoji} ${campaign.name}`
-        )
+        .setAuthor({
+            name: `${emoji} ${campaign.name}`
+        })
+        .setTitle("Track Your Campaign Clips")
         .setDescription(
-            campaign.description ||
-                "Join this campaign to begin earning."
+            [
+                campaign.description ||
+                    "Join this campaign to begin earning.",
+                "",
+                "### 🚀 Join Campaign",
+                "Unlock the private campaign workspace.",
+                "",
+                "### 📊 View Live Details",
+                "Check current members, submissions, views, budget, and payouts.",
+                "",
+                "### ↩️ Leave Campaign",
+                "Remove your campaign role and workspace access."
+            ].join("\n")
         )
         .addFields(
             {
-                name: "📋 Campaign",
+                name: "📋 Campaign Details",
                 value: [
                     `**Client:** ${campaign.client}`,
-                    `**Platform:** ${
-                        campaign.platform || "TikTok"
-                    }`,
+                    `**Platform:** ${campaign.platform || "TikTok"}`,
                     `**Deadline:** ${campaign.deadline}`
                 ].join("\n"),
-                inline: false
+                inline: true
             },
             {
-                name: "💸 Payment",
+                name: "💸 Payment Details",
                 value: [
                     `**Budget:** ${campaign.budget}`,
                     `**CPM:** ${campaign.cpm}`
@@ -91,20 +96,21 @@ function buildCampaignEmbed(campaign) {
                 inline: true
             },
             {
-                name: "📊 Status",
+                name: "📈 Current Status",
                 value: [
-                    `**Members:** ${members}`,
+                    `**Members:** ${memberCount(campaign)}`,
+                    `**Submissions:** ${campaign.submissions || 0}`,
                     `**Status:** ${
                         campaign.status === "Active"
                             ? "🟢 Active"
                             : "⚫ Closed"
                     }`
                 ].join("\n"),
-                inline: true
+                inline: false
             }
         )
         .setFooter({
-            text: "Join below to unlock the private campaign workspace."
+            text: "United Clips • Campaign Tracking"
         })
         .setTimestamp();
 }
@@ -114,60 +120,51 @@ function buildCampaignButtons(campaign) {
 
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(
-                `campaign_join_${campaign.id}`
-            )
+            .setCustomId(`campaign_join_${campaign.id}`)
             .setLabel("Join Campaign")
             .setEmoji("🚀")
             .setStyle(ButtonStyle.Success)
             .setDisabled(isClosed),
 
         new ButtonBuilder()
-            .setCustomId(
-                `campaign_status_${campaign.id}`
-            )
-            .setLabel("View Details")
+            .setCustomId(`campaign_status_${campaign.id}`)
+            .setLabel("View Live Details")
             .setEmoji("📊")
             .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
-            .setCustomId(
-                `campaign_leave_${campaign.id}`
-            )
-            .setLabel("Leave")
+            .setCustomId(`campaign_leave_${campaign.id}`)
+            .setLabel("Leave Campaign")
             .setEmoji("↩️")
-            .setStyle(ButtonStyle.Secondary)
+            .setStyle(ButtonStyle.Danger)
     );
 }
 
 function buildWorkspaceEmbed(campaign) {
-    const emoji = campaign.emoji || "🎬";
-
     return new EmbedBuilder()
         .setColor("#57F287")
-        .setTitle(
-            `${emoji} ${campaign.name} Workspace`
-        )
+        .setAuthor({
+            name: `${campaign.emoji || "🎬"} ${campaign.name}`
+        })
+        .setTitle("Campaign Workspace")
         .setDescription(
             [
-                `Manage your clips for **${campaign.name}** using the buttons below.`,
+                `Use this panel to manage your clips for **${campaign.name}**.`,
                 "",
                 "### 📤 Submit Clip",
-                "Submit your video link for staff review.",
+                "Submit a video URL for staff review.",
                 "",
                 "### 📊 My Stats",
-                "View campaign totals, members, submissions, views, and payout information.",
+                "View the latest campaign numbers.",
                 "",
                 "### ↩️ Leave Campaign",
-                "Remove your campaign role and workspace access."
+                "Leave the campaign and remove your access."
             ].join("\n")
         )
         .addFields(
             {
                 name: "Platform",
-                value: String(
-                    campaign.platform || "TikTok"
-                ),
+                value: String(campaign.platform || "TikTok"),
                 inline: true
             },
             {
@@ -190,25 +187,19 @@ function buildWorkspaceEmbed(campaign) {
 function buildWorkspaceButtons(campaign) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(
-                `submit_clip:${campaign.id}`
-            )
+            .setCustomId(`submit_clip:${campaign.id}`)
             .setLabel("Submit Clip")
             .setEmoji("📤")
             .setStyle(ButtonStyle.Success),
 
         new ButtonBuilder()
-            .setCustomId(
-                `campaign_status_${campaign.id}`
-            )
+            .setCustomId(`campaign_status_${campaign.id}`)
             .setLabel("My Stats")
             .setEmoji("📊")
             .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
-            .setCustomId(
-                `campaign_leave_${campaign.id}`
-            )
+            .setCustomId(`campaign_leave_${campaign.id}`)
             .setLabel("Leave Campaign")
             .setEmoji("↩️")
             .setStyle(ButtonStyle.Danger)
@@ -225,33 +216,24 @@ function buildLeaveEmbed(campaign) {
         .setTimestamp();
 }
 
-/*
-|--------------------------------------------------------------------------
-| PUBLIC CAMPAIGN MESSAGE
-|--------------------------------------------------------------------------
-*/
-
-async function findPublicCampaignMessage(
-    interaction,
-    campaign
-) {
+async function findPublicCampaignMessage(interaction, campaign) {
     const channel =
-        interaction.guild.channels.cache.get(
-            campaign.channel
-        );
+        interaction.guild.channels.cache.get(campaign.channel) ||
+        (await interaction.guild.channels
+            .fetch(campaign.channel)
+            .catch(() => null));
 
     if (!channel || !channel.isTextBased()) {
         return null;
     }
 
     const messages = await channel.messages.fetch({
-        limit: 25
+        limit: 50
     });
 
     return (
         messages.find(message =>
-            message.author.id ===
-                interaction.client.user.id &&
+            message.author.id === interaction.client.user.id &&
             message.components.some(row =>
                 row.components.some(
                     component =>
@@ -267,11 +249,10 @@ async function updatePublicCampaignMessage(
     interaction,
     campaign
 ) {
-    const message =
-        await findPublicCampaignMessage(
-            interaction,
-            campaign
-        );
+    const message = await findPublicCampaignMessage(
+        interaction,
+        campaign
+    );
 
     if (!message) {
         return;
@@ -279,43 +260,34 @@ async function updatePublicCampaignMessage(
 
     await message.edit({
         content: null,
-        embeds: [
-            buildCampaignEmbed(campaign)
-        ],
-        components: [
-            buildCampaignButtons(campaign)
-        ]
+        embeds: [buildCampaignEmbed(campaign)],
+        components: [buildCampaignButtons(campaign)]
     });
 }
 
-/*
-|--------------------------------------------------------------------------
-| CAMPAIGN ROLE
-|--------------------------------------------------------------------------
-*/
-
-async function ensureCampaignRole(
-    interaction,
-    campaign
-) {
+async function ensureCampaignRole(interaction, campaign) {
     let role = campaign.role
-        ? interaction.guild.roles.cache.get(
-              campaign.role
-          )
+        ? interaction.guild.roles.cache.get(campaign.role)
         : null;
+
+    if (!role && campaign.role) {
+        role = await interaction.guild.roles
+            .fetch(campaign.role)
+            .catch(() => null);
+    }
 
     if (role) {
         return role;
     }
 
-    role =
-        await interaction.guild.roles.create({
-            name: `${
-                campaign.emoji || "🎬"
-            } ${campaign.name}`.slice(0, 100),
-            mentionable: true,
-            reason: `Campaign role for ${campaign.name}`
-        });
+    role = await interaction.guild.roles.create({
+        name: `${campaign.emoji || "🎬"} ${campaign.name}`.slice(
+            0,
+            100
+        ),
+        mentionable: true,
+        reason: `Campaign role for ${campaign.name}`
+    });
 
     campaign.role = role.id;
 
@@ -328,27 +300,19 @@ async function ensureCampaignRole(
     return role;
 }
 
-/*
-|--------------------------------------------------------------------------
-| PRIVATE CAMPAIGN WORKSPACE
-|--------------------------------------------------------------------------
-*/
-
 async function createCampaignWorkspace(
     interaction,
     campaign
 ) {
-    const role =
-        interaction.guild.roles.cache.get(
-            campaign.role
-        );
+    const role = await ensureCampaignRole(
+        interaction,
+        campaign
+    );
 
     const permissionOverwrites = [
         {
             id: interaction.guild.roles.everyone.id,
-            deny: [
-                PermissionFlagsBits.ViewChannel
-            ]
+            deny: [PermissionFlagsBits.ViewChannel]
         },
         {
             id: STAFF_ROLE_ID,
@@ -358,25 +322,20 @@ async function createCampaignWorkspace(
                 PermissionFlagsBits.ReadMessageHistory,
                 PermissionFlagsBits.ManageMessages
             ]
-        }
-    ];
-
-    if (role) {
-        permissionOverwrites.push({
+        },
+        {
             id: role.id,
             allow: [
                 PermissionFlagsBits.ViewChannel,
                 PermissionFlagsBits.SendMessages,
                 PermissionFlagsBits.ReadMessageHistory
             ]
-        });
-    }
+        }
+    ];
 
     const category =
         await interaction.guild.channels.create({
-            name: `${
-                campaign.emoji || "🎬"
-            } ${campaign.name}`
+            name: `${campaign.emoji || "🎬"} ${campaign.name}`
                 .toUpperCase()
                 .slice(0, 100),
             type: ChannelType.GuildCategory,
@@ -388,7 +347,7 @@ async function createCampaignWorkspace(
     let submitChannel = null;
 
     for (const channelName of CAMPAIGN_CHANNEL_NAMES) {
-        const channel =
+        const created =
             await interaction.guild.channels.create({
                 name: channelName,
                 type: ChannelType.GuildText,
@@ -397,28 +356,20 @@ async function createCampaignWorkspace(
             });
 
         if (channelName === "📤-submit") {
-            submitChannel = channel;
+            submitChannel = created;
         }
     }
 
     if (submitChannel) {
-        const panel =
-            await submitChannel.send({
-                embeds: [
-                    buildWorkspaceEmbed(campaign)
-                ],
-                components: [
-                    buildWorkspaceButtons(campaign)
-                ]
-            });
+        const panel = await submitChannel.send({
+            embeds: [buildWorkspaceEmbed(campaign)],
+            components: [buildWorkspaceButtons(campaign)]
+        });
 
         await panel.pin().catch(() => null);
 
-        campaign.submitChannel =
-            submitChannel.id;
-
-        campaign.workspacePanel =
-            panel.id;
+        campaign.submitChannel = submitChannel.id;
+        campaign.workspacePanel = panel.id;
     }
 
     await saveCampaign(
@@ -435,31 +386,26 @@ async function ensureCampaignWorkspace(
     campaign
 ) {
     let category = campaign.category
-        ? interaction.guild.channels.cache.get(
-              campaign.category
-          )
+        ? interaction.guild.channels.cache.get(campaign.category)
         : null;
+
+    if (!category && campaign.category) {
+        category = await interaction.guild.channels
+            .fetch(campaign.category)
+            .catch(() => null);
+    }
 
     if (
         category &&
-        category.type ===
-            ChannelType.GuildCategory
+        category.type === ChannelType.GuildCategory
     ) {
         return category;
     }
 
-    await ensureCampaignRole(
+    return createCampaignWorkspace(
         interaction,
         campaign
     );
-
-    category =
-        await createCampaignWorkspace(
-            interaction,
-            campaign
-        );
-
-    return category;
 }
 
 function findFirstWorkspaceChannel(
@@ -478,8 +424,7 @@ function findFirstWorkspaceChannel(
             interaction.guild.channels.cache.find(
                 item =>
                     item.parentId === categoryId &&
-                    item.type ===
-                        ChannelType.GuildText &&
+                    item.type === ChannelType.GuildText &&
                     item.name === name
             );
 
@@ -488,30 +433,13 @@ function findFirstWorkspaceChannel(
         }
     }
 
-    return (
-        interaction.guild.channels.cache.find(
-            item =>
-                item.parentId === categoryId &&
-                item.type ===
-                    ChannelType.GuildText
-        ) || null
-    );
+    return null;
 }
 
-/*
-|--------------------------------------------------------------------------
-| BUTTON ACTIONS
-|--------------------------------------------------------------------------
-*/
-
-async function handleJoin(
-    interaction,
-    campaign
-) {
+async function handleJoin(interaction, campaign) {
     if (campaign.status !== "Active") {
         return interaction.reply({
-            content:
-                "❌ This campaign is no longer active.",
+            content: "❌ This campaign is no longer active.",
             ephemeral: true
         });
     }
@@ -520,14 +448,9 @@ async function handleJoin(
         campaign.members = [];
     }
 
-    if (
-        campaign.members.includes(
-            interaction.user.id
-        )
-    ) {
+    if (campaign.members.includes(interaction.user.id)) {
         return interaction.reply({
-            content:
-                "❌ You are already in this campaign.",
+            content: "❌ You are already in this campaign.",
             ephemeral: true
         });
     }
@@ -541,20 +464,17 @@ async function handleJoin(
         campaign
     );
 
-    const category =
-        await ensureCampaignWorkspace(
-            interaction,
-            campaign
-        );
+    const category = await ensureCampaignWorkspace(
+        interaction,
+        campaign
+    );
 
     await interaction.member.roles.add(
         role,
         `Joined campaign: ${campaign.name}`
     );
 
-    campaign.members.push(
-        interaction.user.id
-    );
+    campaign.members.push(interaction.user.id);
 
     await saveMember(
         interaction.client,
@@ -563,10 +483,8 @@ async function handleJoin(
         {
             campaignId: campaign.id,
             userId: interaction.user.id,
-            username:
-                interaction.user.username,
-            displayName:
-                interaction.member.displayName,
+            username: interaction.user.username,
+            displayName: interaction.member.displayName,
             verified: false,
             tiktok: null,
             clips: [],
@@ -590,11 +508,10 @@ async function handleJoin(
         campaign
     );
 
-    const firstChannel =
-        findFirstWorkspaceChannel(
-            interaction,
-            category.id
-        );
+    const firstChannel = findFirstWorkspaceChannel(
+        interaction,
+        category.id
+    );
 
     const joinEmbed = new EmbedBuilder()
         .setColor("#57F287")
@@ -603,17 +520,14 @@ async function handleJoin(
             [
                 `You successfully joined **${campaign.name}**.`,
                 "",
-                "Your private campaign workspace is now unlocked.",
+                "Your campaign workspace is now unlocked.",
                 "Review the rules before submitting content."
             ].join("\n")
         )
         .addFields(
             {
                 name: "Platform",
-                value: String(
-                    campaign.platform ||
-                        "TikTok"
-                ),
+                value: String(campaign.platform || "TikTok"),
                 inline: true
             },
             {
@@ -623,9 +537,7 @@ async function handleJoin(
             },
             {
                 name: "Deadline",
-                value: String(
-                    campaign.deadline
-                ),
+                value: String(campaign.deadline),
                 inline: true
             }
         )
@@ -637,9 +549,7 @@ async function handleJoin(
         components.push(
             new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
-                    .setLabel(
-                        "Open Campaign Workspace"
-                    )
+                    .setLabel("Open Campaign Workspace")
                     .setEmoji("↗️")
                     .setStyle(ButtonStyle.Link)
                     .setURL(
@@ -655,19 +565,19 @@ async function handleJoin(
     });
 }
 
-async function handleLeave(
-    interaction,
-    campaign
-) {
+async function handleLeave(interaction, campaign) {
     if (!Array.isArray(campaign.members)) {
         campaign.members = [];
     }
 
-    if (
-        !campaign.members.includes(
-            interaction.user.id
-        )
-    ) {
+    const memberHasRole =
+        campaign.role &&
+        interaction.member.roles.cache.has(campaign.role);
+
+    const memberIsSaved =
+        campaign.members.includes(interaction.user.id);
+
+    if (!memberIsSaved && !memberHasRole) {
         return interaction.reply({
             content: `❌ You are not currently in **${campaign.name}**.`,
             ephemeral: true
@@ -678,23 +588,21 @@ async function handleLeave(
         ephemeral: true
     });
 
-    campaign.members =
-        campaign.members.filter(
-            memberId =>
-                memberId !==
-                interaction.user.id
-        );
+    campaign.members = campaign.members.filter(
+        memberId => memberId !== interaction.user.id
+    );
 
     await deleteMember(
         interaction.client,
         campaign.id,
         interaction.user.id
-    );
+    ).catch(() => null);
 
     const role = campaign.role
-        ? interaction.guild.roles.cache.get(
-              campaign.role
-          )
+        ? interaction.guild.roles.cache.get(campaign.role) ||
+          (await interaction.guild.roles
+              .fetch(campaign.role)
+              .catch(() => null))
         : null;
 
     if (role) {
@@ -705,12 +613,6 @@ async function handleLeave(
             )
             .catch(() => null);
     }
-
-    /*
-     * The workspace is NOT deleted when the
-     * last member leaves. It stays ready for
-     * future members.
-     */
 
     await saveCampaign(
         interaction.client,
@@ -724,126 +626,119 @@ async function handleLeave(
     );
 
     return interaction.editReply({
-        embeds: [
-            buildLeaveEmbed(campaign)
-        ],
+        embeds: [buildLeaveEmbed(campaign)],
         components: []
     });
 }
 
-async function handleStatus(
-    interaction,
-    campaign
-) {
-    const numericBudget =
-        Number(
-            String(campaign.budget)
-                .replace(/[$,]/g, "")
-                .trim()
-        ) || 0;
-
-    const numericPaid =
-        Number(
-            String(campaign.paid || 0)
-                .replace(/[$,]/g, "")
-                .trim()
-        ) || 0;
+async function handleStatus(interaction, campaign) {
+    const numericBudget = moneyNumber(campaign.budget);
+    const numericPaid = moneyNumber(campaign.paid);
 
     const remainingBudget = Math.max(
         0,
         numericBudget - numericPaid
     );
 
-    const members = Array.isArray(
-        campaign.members
-    )
-        ? campaign.members.length
-        : 0;
-
-    const statusEmbed =
-        new EmbedBuilder()
-            .setColor(
-                campaign.status === "Active"
-                    ? "#57F287"
-                    : "#747F8D"
-            )
-            .setTitle(
-                `📊 ${campaign.name} Overview`
-            )
-            .addFields(
-                {
-                    name: "💰 Budget Remaining",
-                    value: `$${remainingBudget.toLocaleString(
-                        "en-US",
-                        {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        }
-                    )}`,
-                    inline: true
-                },
-                {
-                    name: "📈 CPM",
-                    value: String(campaign.cpm),
-                    inline: true
-                },
-                {
-                    name: "👥 Members",
-                    value: String(members),
-                    inline: true
-                },
-                {
-                    name: "📤 Submissions",
-                    value: String(
-                        campaign.submissions || 0
-                    ),
-                    inline: true
-                },
-                {
-                    name: "👀 Total Views",
-                    value: Number(
-                        campaign.views || 0
-                    ).toLocaleString(
-                        "en-US"
-                    ),
-                    inline: true
-                },
-                {
-                    name: "💸 Paid Out",
-                    value: `$${numericPaid.toLocaleString(
-                        "en-US",
-                        {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        }
-                    )}`,
-                    inline: true
-                },
-                {
-                    name: "Status",
-                    value:
-                        campaign.status ===
-                        "Active"
-                            ? "🟢 Active"
-                            : "⚫ Closed",
-                    inline: true
-                },
-                {
-                    name: "📅 Deadline",
-                    value: String(
-                        campaign.deadline
-                    ),
-                    inline: true
-                },
-                {
-                    name: "🏷️ Client",
-                    value: String(
-                        campaign.client
-                    ),
-                    inline: true
-                }
-            )
-            .setTimestamp();
+    const statusEmbed = new EmbedBuilder()
+        .setColor(
+            campaign.status === "Active"
+                ? "#57F287"
+                : "#747F8D"
+        )
+        .setTitle(`📊 ${campaign.name} Live Details`)
+        .setDescription(
+            "These numbers are loaded from the latest saved campaign record."
+        )
+        .addFields(
+            {
+                name: "💰 Budget Remaining",
+                value: `$${remainingBudget.toLocaleString(
+                    "en-US",
+                    {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }
+                )}`,
+                inline: true
+            },
+            {
+                name: "📈 CPM",
+                value: String(campaign.cpm),
+                inline: true
+            },
+            {
+                name: "👥 Members",
+                value: String(memberCount(campaign)),
+                inline: true
+            },
+            {
+                name: "📤 Submissions",
+                value: String(campaign.submissions || 0),
+                inline: true
+            },
+            {
+                name: "✅ Approved",
+                value: String(
+                    campaign.approvedSubmissions || 0
+                ),
+                inline: true
+            },
+            {
+                name: "⏳ Pending",
+                value: String(
+                    campaign.pendingSubmissions || 0
+                ),
+                inline: true
+            },
+            {
+                name: "❌ Rejected",
+                value: String(
+                    campaign.rejectedSubmissions || 0
+                ),
+                inline: true
+            },
+            {
+                name: "👀 Total Views",
+                value: Number(
+                    campaign.views || 0
+                ).toLocaleString("en-US"),
+                inline: true
+            },
+            {
+                name: "💸 Paid Out",
+                value: `$${numericPaid.toLocaleString(
+                    "en-US",
+                    {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }
+                )}`,
+                inline: true
+            },
+            {
+                name: "Status",
+                value:
+                    campaign.status === "Active"
+                        ? "🟢 Active"
+                        : "⚫ Closed",
+                inline: true
+            },
+            {
+                name: "📅 Deadline",
+                value: String(campaign.deadline),
+                inline: true
+            },
+            {
+                name: "🏷️ Client",
+                value: String(campaign.client),
+                inline: true
+            }
+        )
+        .setFooter({
+            text: "United Clips • Live Campaign Details"
+        })
+        .setTimestamp();
 
     return interaction.reply({
         embeds: [statusEmbed],
@@ -851,52 +746,49 @@ async function handleStatus(
     });
 }
 
-/*
-|--------------------------------------------------------------------------
-| COMMAND
-|--------------------------------------------------------------------------
-*/
-
 export default {
     data: new SlashCommandBuilder()
-    .setName("campaign")
-    .setDescription("Create and manage campaigns")
-    .setDMPermission(false)
-    .addSubcommand(subcommand =>
-        subcommand
-            .setName("create")
-            .setDescription("Open the campaign creation form")
-            .addStringOption(option =>
-                option
-                    .setName("emoji")
-                    .setDescription("Campaign emoji, for example 🎬")
-                    .setRequired(false)
-            )
-            .addStringOption(option =>
-                option
-                    .setName("platform")
-                    .setDescription("Campaign platform")
-                    .setRequired(false)
-                    .addChoices(
-                        {
-                            name: "TikTok",
-                            value: "TikTok"
-                        },
-                        {
-                            name: "Instagram",
-                            value: "Instagram"
-                        },
-                        {
-                            name: "YouTube",
-                            value: "YouTube"
-                        },
-                        {
-                            name: "Multiple Platforms",
-                            value: "TikTok, Instagram, YouTube"
-                        }
-                    )
-            )
-    ),
+        .setName("campaign")
+        .setDescription("Create and manage campaigns")
+        .setDMPermission(false)
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("create")
+                .setDescription("Open the campaign creation form")
+                .addStringOption(option =>
+                    option
+                        .setName("emoji")
+                        .setDescription(
+                            "Campaign emoji, for example 🎬"
+                        )
+                        .setRequired(false)
+                )
+                .addStringOption(option =>
+                    option
+                        .setName("platform")
+                        .setDescription("Campaign platform")
+                        .setRequired(false)
+                        .addChoices(
+                            {
+                                name: "TikTok",
+                                value: "TikTok"
+                            },
+                            {
+                                name: "Instagram",
+                                value: "Instagram"
+                            },
+                            {
+                                name: "YouTube",
+                                value: "YouTube"
+                            },
+                            {
+                                name: "Multiple Platforms",
+                                value:
+                                    "TikTok, Instagram, YouTube"
+                            }
+                        )
+                )
+        ),
 
     async execute(interaction) {
         if (
@@ -912,175 +804,103 @@ export default {
             )
         ) {
             return interaction.reply({
-                content:
-                    "❌ Only staff can create campaigns.",
+                content: "❌ Only staff can create campaigns.",
                 ephemeral: true
             });
         }
 
-        await interaction.deferReply({
-            ephemeral: true
-        });
+        const emoji =
+            interaction.options.getString("emoji") ||
+            "🎬";
 
-        try {
-            const activeCategory =
-                await interaction.guild.channels.fetch(
-                    ACTIVE_CATEGORY_ID
-                );
+        const platform =
+            interaction.options.getString("platform") ||
+            "TikTok";
 
-            if (
-                !activeCategory ||
-                activeCategory.type !==
-                    ChannelType.GuildCategory
-            ) {
-                return interaction.editReply({
-                    content:
-                        "❌ ACTIVE_CATEGORY_ID is not a valid category."
-                });
-            }
-
-            const emoji =
-                interaction.options.getString(
-                    "emoji"
-                ) || "🎬";
-
-            const data = {
-                name:
-                    interaction.options.getString(
-                        "name",
-                        true
-                    ),
-                client:
-                    interaction.options.getString(
-                        "client",
-                        true
-                    ),
-                budget:
-                    interaction.options.getString(
-                        "budget",
-                        true
-                    ),
-                cpm:
-                    interaction.options.getString(
-                        "cpm",
-                        true
-                    ),
-                deadline:
-                    interaction.options.getString(
-                        "deadline",
-                        true
-                    ),
-                description:
-                    interaction.options.getString(
-                        "description",
-                        true
-                    ),
-                emoji,
-                platform:
-                    interaction.options.getString(
-                        "platform"
-                    ) || "TikTok"
-            };
-
-            const id = Date.now().toString();
-
-            const cleanName =
-                cleanChannelName(data.name) ||
-                `campaign-${id.slice(-6)}`;
-
-            const campaignChannel =
-                await interaction.guild.channels.create({
-                    name: `${emoji}-${cleanName}`.slice(
-                        0,
-                        100
-                    ),
-                    type: ChannelType.GuildText,
-                    parent: activeCategory.id
-                });
-
-            const campaign = {
-                id,
-                ...data,
-                channel: campaignChannel.id,
-                category: null,
-                submitChannel: null,
-                workspacePanel: null,
-                role: null,
-                members: [],
-                submissions: 0,
-                views: 0,
-                paid: 0,
-                status: "Active"
-            };
-
-            await saveCampaign(
-                interaction.client,
-                id,
-                campaign
-            );
-
-            /*
-             * Create the role and private
-             * workspace immediately.
-             */
-            await ensureCampaignRole(
-                interaction,
-                campaign
-            );
-
-            await createCampaignWorkspace(
-                interaction,
-                campaign
-            );
-
-            await campaignChannel.send({
-                embeds: [
-                    buildCampaignEmbed(campaign)
-                ],
-                components: [
-                    buildCampaignButtons(campaign)
-                ]
-            });
-
-            return interaction.editReply({
-                content: [
-                    "✅ Campaign created successfully.",
-                    "",
-                    `**Public campaign:** ${campaignChannel}`,
-                    `**Private workspace:** <#${campaign.submitChannel}>`
-                ].join("\n")
-            });
-        } catch (error) {
-            console.error(
-                "Campaign creation failed:",
-                error
-            );
-
-            return interaction.editReply({
-                content:
-                    "❌ The campaign could not be created. Check Railway logs for the exact error."
-            });
+        if (!interaction.client.campaignDrafts) {
+            interaction.client.campaignDrafts =
+                new Map();
         }
+
+        const draftKey =
+            `${interaction.guild.id}:${interaction.user.id}`;
+
+        interaction.client.campaignDrafts.set(
+            draftKey,
+            {
+                emoji,
+                platform,
+                createdAt: Date.now()
+            }
+        );
+
+        const modal = new ModalBuilder()
+            .setCustomId("campaign_create_modal")
+            .setTitle("Create Campaign");
+
+        const nameInput = new TextInputBuilder()
+            .setCustomId("campaign_name")
+            .setLabel("Campaign name")
+            .setPlaceholder("Example: Dead Fresh")
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(80)
+            .setRequired(true);
+
+        const clientInput = new TextInputBuilder()
+            .setCustomId("campaign_client")
+            .setLabel("Client")
+            .setPlaceholder("Example: Lil Baby")
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(100)
+            .setRequired(true);
+
+        const budgetInput = new TextInputBuilder()
+            .setCustomId("campaign_budget")
+            .setLabel("Campaign budget")
+            .setPlaceholder("Example: $2,000")
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(30)
+            .setRequired(true);
+
+        const cpmInput = new TextInputBuilder()
+            .setCustomId("campaign_cpm")
+            .setLabel("CPM")
+            .setPlaceholder("Example: $2.00")
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(30)
+            .setRequired(true);
+
+        const detailsInput = new TextInputBuilder()
+            .setCustomId("campaign_details")
+            .setLabel("Deadline and instructions")
+            .setPlaceholder(
+                "Deadline: August 5, 2026\nInstructions: Create clean edits..."
+            )
+            .setStyle(TextInputStyle.Paragraph)
+            .setMaxLength(1000)
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(nameInput),
+            new ActionRowBuilder().addComponents(clientInput),
+            new ActionRowBuilder().addComponents(budgetInput),
+            new ActionRowBuilder().addComponents(cpmInput),
+            new ActionRowBuilder().addComponents(detailsInput)
+        );
+
+        return interaction.showModal(modal);
     },
 
     async button(interaction) {
-        const parts =
-            interaction.customId.split("_");
+        const parts = interaction.customId.split("_");
 
         const prefix = parts[0];
         const action = parts[1];
-        const id = parts
-            .slice(2)
-            .join("_");
+        const id = parts.slice(2).join("_");
 
-        if (
-            prefix !== "campaign" ||
-            !action ||
-            !id
-        ) {
+        if (prefix !== "campaign" || !action || !id) {
             return interaction.reply({
-                content:
-                    "❌ Invalid campaign button.",
+                content: "❌ Invalid campaign button.",
                 ephemeral: true
             });
         }
@@ -1092,8 +912,7 @@ export default {
 
         if (!campaign) {
             return interaction.reply({
-                content:
-                    "❌ Campaign not found.",
+                content: "❌ Campaign not found.",
                 ephemeral: true
             });
         }
@@ -1124,9 +943,317 @@ export default {
         }
 
         return interaction.reply({
-            content:
-                "❌ Unknown campaign action.",
+            content: "❌ Unknown campaign action.",
             ephemeral: true
         });
     }
 };
+'''
+
+modal_code = r'''import {
+    ChannelType,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle
+} from "discord.js";
+
+import {
+    saveCampaign
+} from "../../utils/database.js";
+
+const ACTIVE_CATEGORY_ID = "1529961507062812752";
+
+function cleanChannelName(name) {
+    return String(name)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80);
+}
+
+function splitDetails(value) {
+    const text = String(value || "").trim();
+
+    const lines = text
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean);
+
+    const deadlineLine = lines.find(line =>
+        /^deadline\s*:/i.test(line)
+    );
+
+    const deadline = deadlineLine
+        ? deadlineLine
+              .replace(/^deadline\s*:/i, "")
+              .trim()
+        : lines[0] || "Not specified";
+
+    const descriptionLines = lines.filter(
+        line => line !== deadlineLine
+    );
+
+    const description =
+        descriptionLines
+            .join("\n")
+            .replace(/^instructions?\s*:/i, "")
+            .trim() ||
+        "Create and submit content for this campaign.";
+
+    return {
+        deadline,
+        description
+    };
+}
+
+function buildCampaignEmbed(campaign) {
+    return new EmbedBuilder()
+        .setColor("#57F287")
+        .setAuthor({
+            name: `${campaign.emoji || "🎬"} ${campaign.name}`
+        })
+        .setTitle("Track Your Campaign Clips")
+        .setDescription(
+            [
+                campaign.description,
+                "",
+                "### 🚀 Join Campaign",
+                "Unlock the private campaign workspace.",
+                "",
+                "### 📊 View Live Details",
+                "Check current members, submissions, views, budget, and payouts.",
+                "",
+                "### ↩️ Leave Campaign",
+                "Remove your campaign role and workspace access."
+            ].join("\n")
+        )
+        .addFields(
+            {
+                name: "📋 Campaign Details",
+                value: [
+                    `**Client:** ${campaign.client}`,
+                    `**Platform:** ${campaign.platform}`,
+                    `**Deadline:** ${campaign.deadline}`
+                ].join("\n"),
+                inline: true
+            },
+            {
+                name: "💸 Payment Details",
+                value: [
+                    `**Budget:** ${campaign.budget}`,
+                    `**CPM:** ${campaign.cpm}`
+                ].join("\n"),
+                inline: true
+            },
+            {
+                name: "📈 Current Status",
+                value: [
+                    "**Members:** 0",
+                    "**Submissions:** 0",
+                    "**Status:** 🟢 Active"
+                ].join("\n"),
+                inline: false
+            }
+        )
+        .setFooter({
+            text: "United Clips • Campaign Tracking"
+        })
+        .setTimestamp();
+}
+
+function buildCampaignButtons(campaign) {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`campaign_join_${campaign.id}`)
+            .setLabel("Join Campaign")
+            .setEmoji("🚀")
+            .setStyle(ButtonStyle.Success),
+
+        new ButtonBuilder()
+            .setCustomId(`campaign_status_${campaign.id}`)
+            .setLabel("View Live Details")
+            .setEmoji("📊")
+            .setStyle(ButtonStyle.Primary),
+
+        new ButtonBuilder()
+            .setCustomId(`campaign_leave_${campaign.id}`)
+            .setLabel("Leave Campaign")
+            .setEmoji("↩️")
+            .setStyle(ButtonStyle.Danger)
+    );
+}
+
+export default {
+    customId: "campaign_create_modal",
+
+    async execute(interaction) {
+        await interaction.deferReply({
+            ephemeral: true
+        });
+
+        try {
+            const draftKey =
+                `${interaction.guild.id}:${interaction.user.id}`;
+
+            const draft =
+                interaction.client.campaignDrafts?.get(
+                    draftKey
+                ) || {
+                    emoji: "🎬",
+                    platform: "TikTok"
+                };
+
+            interaction.client.campaignDrafts?.delete(
+                draftKey
+            );
+
+            const activeCategory =
+                await interaction.guild.channels.fetch(
+                    ACTIVE_CATEGORY_ID
+                );
+
+            if (
+                !activeCategory ||
+                activeCategory.type !==
+                    ChannelType.GuildCategory
+            ) {
+                return interaction.editReply({
+                    content:
+                        "❌ ACTIVE_CATEGORY_ID is not a valid category."
+                });
+            }
+
+            const name =
+                interaction.fields
+                    .getTextInputValue(
+                        "campaign_name"
+                    )
+                    .trim();
+
+            const client =
+                interaction.fields
+                    .getTextInputValue(
+                        "campaign_client"
+                    )
+                    .trim();
+
+            const budget =
+                interaction.fields
+                    .getTextInputValue(
+                        "campaign_budget"
+                    )
+                    .trim();
+
+            const cpm =
+                interaction.fields
+                    .getTextInputValue(
+                        "campaign_cpm"
+                    )
+                    .trim();
+
+            const details =
+                interaction.fields.getTextInputValue(
+                    "campaign_details"
+                );
+
+            const {
+                deadline,
+                description
+            } = splitDetails(details);
+
+            const id = Date.now().toString();
+
+            const cleanName =
+                cleanChannelName(name) ||
+                `campaign-${id.slice(-6)}`;
+
+            const campaignChannel =
+                await interaction.guild.channels.create({
+                    name: `${draft.emoji}-${cleanName}`.slice(
+                        0,
+                        100
+                    ),
+                    type: ChannelType.GuildText,
+                    parent: activeCategory.id
+                });
+
+            const campaign = {
+                id,
+                name,
+                client,
+                budget,
+                cpm,
+                deadline,
+                description,
+                emoji: draft.emoji || "🎬",
+                platform:
+                    draft.platform || "TikTok",
+                channel: campaignChannel.id,
+                category: null,
+                submitChannel: null,
+                workspacePanel: null,
+                role: null,
+                members: [],
+                submissions: 0,
+                approvedSubmissions: 0,
+                pendingSubmissions: 0,
+                rejectedSubmissions: 0,
+                views: 0,
+                approvedViews: 0,
+                paid: 0,
+                status: "Active",
+                createdAt: Date.now()
+            };
+
+            await saveCampaign(
+                interaction.client,
+                id,
+                campaign
+            );
+
+            await campaignChannel.send({
+                embeds: [
+                    buildCampaignEmbed(campaign)
+                ],
+                components: [
+                    buildCampaignButtons(campaign)
+                ]
+            });
+
+            return interaction.editReply({
+                content: [
+                    "✅ Campaign created successfully.",
+                    "",
+                    `**Public campaign:** ${campaignChannel}`,
+                    "",
+                    "The private workspace will be created when the first member joins."
+                ].join("\n")
+            });
+        } catch (error) {
+            console.error(
+                "Campaign modal creation failed:",
+                error
+            );
+
+            return interaction.editReply({
+                content:
+                    "❌ Campaign creation failed. Check the Railway logs for the exact error."
+            });
+        }
+    }
+};
+'''
+
+out = Path("/mnt/data")
+campaign_path = out / "campaign.js"
+modal_path = out / "campaignCreateModal.js"
+
+campaign_path.write_text(campaign_code, encoding="utf-8")
+modal_path.write_text(modal_code, encoding="utf-8")
+
+print(f"Created {campaign_path}")
+print(f"Created {modal_path}")
