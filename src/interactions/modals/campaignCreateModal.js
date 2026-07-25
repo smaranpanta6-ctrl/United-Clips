@@ -78,30 +78,6 @@ function buildCampaignContent(campaign) {
         "## 👇 JOIN BELOW TO START EARNING"
     ].join("\n");
 }
-            {
-                name: "💸 Payment Details",
-                value: [
-                    `**Budget:** ${campaign.budget}`,
-                    `**CPM:** ${campaign.cpm}`
-                ].join("\n"),
-                inline: true
-            },
-            {
-                name: "📈 Current Status",
-                value: [
-                    "**Members:** 0",
-                    "**Submissions:** 0",
-                    "**Status:** 🟢 Active"
-                ].join("\n"),
-                inline: false
-            }
-        )
-        .setFooter({
-            text: "United Clips • Campaign Tracking"
-        })
-        .setTimestamp();
-}
-
 function buildCampaignButtons(campaign) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
