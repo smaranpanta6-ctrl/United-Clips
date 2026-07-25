@@ -1024,14 +1024,23 @@ if (action === "status") {
     );
 }
 
-if (action === "mystats") {
-    return handleMyStats(
-        interaction,
-        campaign
-    );
-}
+        if (action === "status") {
+            return handleStatus(
+                interaction,
+                campaign
+            );
+        }
 
-return interaction.reply({
-    content: "❌ Unknown campaign action.",
-    ephemeral: true
-});
+        if (action === "mystats") {
+            return handleMyStats(
+                interaction,
+                campaign
+            );
+        }
+
+        return interaction.reply({
+            content: "❌ Unknown campaign action.",
+            ephemeral: true
+        });
+    }
+};
