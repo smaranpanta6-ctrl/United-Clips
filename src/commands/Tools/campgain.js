@@ -92,6 +92,19 @@ function buildCampaignButtons(campaign) {
     );
 }
 
+   async function findPublicCampaignMessage(interaction, campaign) {
+    const channel = interaction.guild.channels.cache.get(
+        campaign.channel
+    );
+
+    if (!channel || !channel.isTextBased()) {
+        return null;
+    }
+
+    const messages = await channel.messages.fetch({
+        limit: 25
+    });
+
     return (
         messages.find(message =>
             message.author.id === interaction.client.user.id &&
@@ -105,7 +118,6 @@ function buildCampaignButtons(campaign) {
         ) || null
     );
 }
-
 async function updatePublicCampaignMessage(
     interaction,
     campaign
