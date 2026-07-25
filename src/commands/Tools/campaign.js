@@ -449,9 +449,18 @@ async function handleJoin(interaction, campaign) {
         campaign.members = [];
     }
 
-    if (campaign.members.includes(interaction.user.id)) {
+    await interaction.member.fetch();
+
+    const alreadySaved =
+        campaign.members.includes(interaction.user.id);
+
+    const alreadyHasRole =
+        campaign.role &&
+        interaction.member.roles.cache.has(campaign.role);
+
+    if (alreadySaved && alreadyHasRole) {
         return interaction.reply({
-            content: "❌ You are already in this campaign.",
+            content: `❌ You are already in **${campaign.name}**.`,
             ephemeral: true
         });
     }
@@ -460,110 +469,207 @@ async function handleJoin(interaction, campaign) {
         ephemeral: true
     });
 
-    const role = await ensureCampaignRole(
-        interaction,
-        campaign
-    );
-
-    const category = await ensureCampaignWorkspace(
-        interaction,
-        campaign
-    );
-
-    await interaction.member.roles.add(
-        role,
-        `Joined campaign: ${campaign.name}`
-    );
-
-    campaign.members.push(interaction.user.id);
-
-    await saveMember(
-        interaction.client,
-        campaign.id,
-        interaction.user.id,
-        {
-            campaignId: campaign.id,
-            userId: interaction.user.id,
-            username: interaction.user.username,
-            displayName: interaction.member.displayName,
-            verified: false,
-            tiktok: null,
-            clips: [],
-            totalViews: 0,
-            approvedViews: 0,
-            pendingViews: 0,
-            rejectedViews: 0,
-            payout: 0,
-            joinedAt: Date.now()
-        }
-    );
-
-    await saveCampaign(
-        interaction.client,
-        campaign.id,
-        campaign
-    );
-
-    await updatePublicCampaignMessage(
-        interaction,
-        campaign
-    );
-
-    const firstChannel = findFirstWorkspaceChannel(
-        interaction,
-        category.id
-    );
-
-    const joinEmbed = new EmbedBuilder()
-        .setColor("#57F287")
-        .setTitle("✅ Campaign Joined")
-        .setDescription(
-            [
-                `You successfully joined **${campaign.name}**.`,
-                "",
-                "Your campaign workspace is now unlocked.",
-                "Review the rules before submitting content."
-            ].join("\n")
-        )
-        .addFields(
-            {
-                name: "Platform",
-                value: String(campaign.platform || "TikTok"),
-                inline: true
-            },
-            {
-                name: "CPM",
-                value: String(campaign.cpm),
-                inline: true
-            },
-            {
-                name: "Deadline",
-                value: String(campaign.deadline),
-                inline: true
-            }
-        )
-        .setTimestamp();
-
-    const components = [];
-
-    if (firstChannel) {
-        components.push(
-            new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setLabel("Open Campaign Workspace")
-                    .setEmoji("↗️")
-                    .setStyle(ButtonStyle.Link)
-                    .setURL(
-                        `https://discord.com/channels/${interaction.guild.id}/${firstChannel.id}`
-                    )
-            )
+    try {
+        // Creates or finds the campaign role.
+        const role = await ensureCampaignRole(
+            interaction,
+            campaign
         );
-    }
 
-    return interaction.editReply({
-        embeds: [joinEmbed],
-        components
-    });
+        if (!role) {
+            return interaction.editReply({
+                content:
+                    "❌ I could not create or find the campaign role."
+            });
+        }
+
+        if (!role.editable) {
+            return interaction.editReply({
+                content: [
+                    "❌ I cannot assign the campaign role.",
+                    "",
+                    "Move the bot role above the campaign role in **Server Settings → Roles** and enable **Manage Roles**."
+                ].join("\n")
+            });
+        }
+
+        // Creates or finds the private campaign workspace.
+        const category = await ensureCampaignWorkspace(
+            interaction,
+            campaign
+        );
+
+        if (!category) {
+            return interaction.editReply({
+                content:
+                    "❌ I could not create or find the campaign workspace."
+            });
+        }
+
+        /*
+         * Remove the personal ViewChannel deny that was added
+         * when this member previously left the campaign.
+         */
+        await category.permissionOverwrites
+            .delete(interaction.user.id)
+            .catch(error => {
+                console.error(
+                    "Failed to remove old campaign permission deny:",
+                    error
+                );
+            });
+
+        /*
+         * Some child channels may have their own personal overwrite.
+         * Remove those too so rejoining always restores access.
+         */
+        const workspaceChannels =
+            interaction.guild.channels.cache.filter(
+                channel =>
+                    channel.parentId === category.id
+            );
+
+        for (const channel of workspaceChannels.values()) {
+            await channel.permissionOverwrites
+                .delete(interaction.user.id)
+                .catch(() => null);
+        }
+
+        // Automatically give the campaign role.
+        await interaction.member.roles.add(
+            role,
+            `Joined campaign: ${campaign.name}`
+        );
+
+        // Refresh the member and verify Discord applied the role.
+        await interaction.member.fetch();
+
+        if (!interaction.member.roles.cache.has(role.id)) {
+            return interaction.editReply({
+                content: [
+                    "❌ Discord did not apply the campaign role.",
+                    "",
+                    "Make sure the bot has **Manage Roles** and its role is above the campaign role."
+                ].join("\n")
+            });
+        }
+
+        if (!campaign.members.includes(interaction.user.id)) {
+            campaign.members.push(interaction.user.id);
+        }
+
+        await saveMember(
+            interaction.client,
+            campaign.id,
+            interaction.user.id,
+            {
+                campaignId: campaign.id,
+                userId: interaction.user.id,
+                username: interaction.user.username,
+                displayName: interaction.member.displayName,
+                verified: false,
+                tiktok: null,
+                clips: [],
+                totalViews: 0,
+                approvedViews: 0,
+                pendingViews: 0,
+                rejectedViews: 0,
+                payout: 0,
+                joinedAt: Date.now()
+            }
+        );
+
+        await saveCampaign(
+            interaction.client,
+            campaign.id,
+            campaign
+        );
+
+        await updatePublicCampaignMessage(
+            interaction,
+            campaign
+        ).catch(error => {
+            console.error(
+                "Failed to update public campaign message:",
+                error
+            );
+        });
+
+        const firstChannel = findFirstWorkspaceChannel(
+            interaction,
+            category.id
+        );
+
+        const joinEmbed = new EmbedBuilder()
+            .setColor("#57F287")
+            .setTitle("✅ Campaign Joined")
+            .setDescription(
+                [
+                    `You successfully joined **${campaign.name}**.`,
+                    "",
+                    `The **${role.name}** role was automatically added.`,
+                    "Your private campaign workspace is now unlocked.",
+                    "",
+                    "Review the rules before submitting content."
+                ].join("\n")
+            )
+            .addFields(
+                {
+                    name: "Platform",
+                    value: String(
+                        campaign.platform || "TikTok"
+                    ),
+                    inline: true
+                },
+                {
+                    name: "CPM",
+                    value: String(campaign.cpm),
+                    inline: true
+                },
+                {
+                    name: "Deadline",
+                    value: String(campaign.deadline),
+                    inline: true
+                }
+            )
+            .setTimestamp();
+
+        const components = [];
+
+        if (firstChannel) {
+            components.push(
+                new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setLabel(
+                            "Open Campaign Workspace"
+                        )
+                        .setEmoji("↗️")
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(
+                            `https://discord.com/channels/${interaction.guild.id}/${firstChannel.id}`
+                        )
+                )
+            );
+        }
+
+        return interaction.editReply({
+            embeds: [joinEmbed],
+            components
+        });
+    } catch (error) {
+        console.error(
+            `Failed to join campaign ${campaign.id}:`,
+            error
+        );
+
+        return interaction.editReply({
+            content: [
+                "❌ I could not add you to this campaign.",
+                "",
+                "Check that the bot has **Manage Roles** and **Manage Channels**, and that its role is above the campaign role."
+            ].join("\n")
+        });
+    }
 }
 
 async function handleLeave(interaction, campaign) {
@@ -571,16 +677,19 @@ async function handleLeave(interaction, campaign) {
         campaign.members = [];
     }
 
-    const memberHasRole =
-        campaign.role &&
-        interaction.member.roles.cache.has(campaign.role);
+    await interaction.member.fetch();
 
     const memberIsSaved =
         campaign.members.includes(interaction.user.id);
 
+    const memberHasRole =
+        campaign.role &&
+        interaction.member.roles.cache.has(campaign.role);
+
     if (!memberIsSaved && !memberHasRole) {
         return interaction.reply({
-            content: `❌ You are not currently in **${campaign.name}**.`,
+            content:
+                `❌ You are not currently in **${campaign.name}**.`,
             ephemeral: true
         });
     }
@@ -589,47 +698,131 @@ async function handleLeave(interaction, campaign) {
         ephemeral: true
     });
 
-    campaign.members = campaign.members.filter(
-        memberId => memberId !== interaction.user.id
-    );
+    try {
+        const role = campaign.role
+            ? interaction.guild.roles.cache.get(
+                  campaign.role
+              ) ||
+              (await interaction.guild.roles
+                  .fetch(campaign.role)
+                  .catch(() => null))
+            : null;
 
-    await deleteMember(
-        interaction.client,
-        campaign.id,
-        interaction.user.id
-    ).catch(() => null);
+        if (role) {
+            if (!role.editable) {
+                return interaction.editReply({
+                    content: [
+                        "❌ I cannot remove your campaign role.",
+                        "",
+                        "Move the bot role above the campaign role in **Server Settings → Roles** and enable **Manage Roles**."
+                    ].join("\n")
+                });
+            }
 
-    const role = campaign.role
-        ? interaction.guild.roles.cache.get(campaign.role) ||
-          (await interaction.guild.roles
-              .fetch(campaign.role)
-              .catch(() => null))
-        : null;
-
-    if (role) {
-        await interaction.member.roles
-            .remove(
+            await interaction.member.roles.remove(
                 role,
                 `Left campaign: ${campaign.name}`
-            )
-            .catch(() => null);
+            );
+
+            await interaction.member.fetch();
+
+            if (
+                interaction.member.roles.cache.has(
+                    role.id
+                )
+            ) {
+                return interaction.editReply({
+                    content:
+                        "❌ Discord did not remove the campaign role. Check the bot's role position."
+                });
+            }
+        }
+
+        /*
+         * Deny access to the private category immediately.
+         * Removing the role should already remove access, but
+         * this prevents stale permission access.
+         */
+        const category = campaign.category
+            ? interaction.guild.channels.cache.get(
+                  campaign.category
+              ) ||
+              (await interaction.guild.channels
+                  .fetch(campaign.category)
+                  .catch(() => null))
+            : null;
+
+        if (
+            category &&
+            category.type === ChannelType.GuildCategory
+        ) {
+            await category.permissionOverwrites.edit(
+                interaction.user.id,
+                {
+                    ViewChannel: false
+                },
+                {
+                    reason:
+                        `Left campaign: ${campaign.name}`
+                }
+            );
+        }
+
+        campaign.members = campaign.members.filter(
+            memberId =>
+                memberId !== interaction.user.id
+        );
+
+        await deleteMember(
+            interaction.client,
+            campaign.id,
+            interaction.user.id
+        ).catch(error => {
+            console.error(
+                "Failed to delete campaign member record:",
+                error
+            );
+        });
+
+        await saveCampaign(
+            interaction.client,
+            campaign.id,
+            campaign
+        );
+
+        await updatePublicCampaignMessage(
+            interaction,
+            campaign
+        ).catch(error => {
+            console.error(
+                "Failed to update public campaign message:",
+                error
+            );
+        });
+
+        return interaction.editReply({
+            content: [
+                `✅ You left **${campaign.name}**.`,
+                "",
+                "Your campaign role and private workspace access were removed."
+            ].join("\n"),
+            embeds: [],
+            components: []
+        });
+    } catch (error) {
+        console.error(
+            `Failed to leave campaign ${campaign.id}:`,
+            error
+        );
+
+        return interaction.editReply({
+            content: [
+                "❌ I could not remove you from this campaign.",
+                "",
+                "Check that the bot has **Manage Roles** and **Manage Channels**, and that its role is above the campaign role."
+            ].join("\n")
+        });
     }
-
-    await saveCampaign(
-        interaction.client,
-        campaign.id,
-        campaign
-    );
-
-    await updatePublicCampaignMessage(
-        interaction,
-        campaign
-    );
-
-    return interaction.editReply({
-        embeds: [buildLeaveEmbed(campaign)],
-        components: []
-    });
 }
 
 async function handleStatus(interaction, campaign) {
@@ -675,7 +868,9 @@ async function handleStatus(interaction, campaign) {
             },
             {
                 name: "📤 Submissions",
-                value: String(campaign.submissions || 0),
+                value: String(
+                    campaign.submissions || 0
+                ),
                 inline: true
             },
             {
