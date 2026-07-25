@@ -41,7 +41,7 @@ function buildCampaignPost(campaign) {
         "",
         "## 📋 Campaign Details",
         `**Client:** ${campaign.client}`,
-        "**Platforms:** TikTok, Instagram, YouTube",
+        "**Platforms:** TikTok",
         `**Deadline:** ${campaign.deadline}`,
         "",
         "## 💸 Payment Details",
