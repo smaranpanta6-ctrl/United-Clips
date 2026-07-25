@@ -5,7 +5,10 @@ import {
     EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle
+    ButtonStyle,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle
 } from "discord.js";
 
 import {
@@ -856,108 +859,44 @@ async function handleStatus(
 
 export default {
     data: new SlashCommandBuilder()
-        .setName("campaign")
-        .setDescription(
-            "Create and manage campaigns"
-        )
-        .setDMPermission(false)
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName("create")
-                .setDescription(
-                    "Create a new campaign"
-                )
-
-                .addStringOption(option =>
-                    option
-                        .setName("name")
-                        .setDescription(
-                            "Campaign name"
-                        )
-                        .setRequired(true)
-                )
-
-                .addStringOption(option =>
-                    option
-                        .setName("client")
-                        .setDescription(
-                            "Client or campaign label"
-                        )
-                        .setRequired(true)
-                )
-
-                .addStringOption(option =>
-                    option
-                        .setName("budget")
-                        .setDescription(
-                            "Budget, for example $3,200"
-                        )
-                        .setRequired(true)
-                )
-
-                .addStringOption(option =>
-                    option
-                        .setName("cpm")
-                        .setDescription(
-                            "CPM, for example $1.00"
-                        )
-                        .setRequired(true)
-                )
-
-                .addStringOption(option =>
-                    option
-                        .setName("deadline")
-                        .setDescription(
-                            "Campaign deadline"
-                        )
-                        .setRequired(true)
-                )
-
-                .addStringOption(option =>
-                    option
-                        .setName("description")
-                        .setDescription(
-                            "Campaign description"
-                        )
-                        .setRequired(true)
-                )
-
-                .addStringOption(option =>
-                    option
-                        .setName("emoji")
-                        .setDescription(
-                            "Campaign emoji, for example 🎬"
-                        )
-                        .setRequired(false)
-                )
-
-                .addStringOption(option =>
-                    option
-                        .setName("platform")
-                        .setDescription(
-                            "Content platform"
-                        )
-                        .setRequired(false)
-                        .addChoices(
-                            {
-                                name: "TikTok",
-                                value: "TikTok"
-                            },
-                            {
-                                name: "Instagram",
-                                value: "Instagram"
-                            },
-                            {
-                                name: "YouTube",
-                                value: "YouTube"
-                            },
-                            {
-                                name: "Multiple Platforms",
-                                value: "TikTok, Instagram, YouTube"
-                            }
-                        )
-                )
-        ),
+    .setName("campaign")
+    .setDescription("Create and manage campaigns")
+    .setDMPermission(false)
+    .addSubcommand(subcommand =>
+        subcommand
+            .setName("create")
+            .setDescription("Open the campaign creation form")
+            .addStringOption(option =>
+                option
+                    .setName("emoji")
+                    .setDescription("Campaign emoji, for example 🎬")
+                    .setRequired(false)
+            )
+            .addStringOption(option =>
+                option
+                    .setName("platform")
+                    .setDescription("Campaign platform")
+                    .setRequired(false)
+                    .addChoices(
+                        {
+                            name: "TikTok",
+                            value: "TikTok"
+                        },
+                        {
+                            name: "Instagram",
+                            value: "Instagram"
+                        },
+                        {
+                            name: "YouTube",
+                            value: "YouTube"
+                        },
+                        {
+                            name: "Multiple Platforms",
+                            value: "TikTok, Instagram, YouTube"
+                        }
+                    )
+            )
+    ),
 
     async execute(interaction) {
         if (
