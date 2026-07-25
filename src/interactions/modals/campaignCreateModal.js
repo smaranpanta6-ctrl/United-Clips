@@ -136,9 +136,9 @@ function buildCampaignButtons(campaign) {
 }
 
 export default {
-    customId: "campaign_create_modal",
+    name: "campaign_create_modal",
 
-    async execute(interaction) {
+    async execute(interaction, client) {
         await interaction.deferReply({
             ephemeral: true
         });
@@ -148,16 +148,12 @@ export default {
                 `${interaction.guild.id}:${interaction.user.id}`;
 
             const draft =
-                interaction.client.campaignDrafts?.get(
-                    draftKey
-                ) || {
+                client.campaignDrafts?.get(draftKey) || {
                     emoji: "🎬",
                     platform: "TikTok"
                 };
 
-            interaction.client.campaignDrafts?.delete(
-                draftKey
-            );
+            client.campaignDrafts?.delete(draftKey);
 
             const activeCategory =
                 await interaction.guild.channels.fetch(
@@ -177,30 +173,22 @@ export default {
 
             const name =
                 interaction.fields
-                    .getTextInputValue(
-                        "campaign_name"
-                    )
+                    .getTextInputValue("campaign_name")
                     .trim();
 
-            const client =
+            const campaignClient =
                 interaction.fields
-                    .getTextInputValue(
-                        "campaign_client"
-                    )
+                    .getTextInputValue("campaign_client")
                     .trim();
 
             const budget =
                 interaction.fields
-                    .getTextInputValue(
-                        "campaign_budget"
-                    )
+                    .getTextInputValue("campaign_budget")
                     .trim();
 
             const cpm =
                 interaction.fields
-                    .getTextInputValue(
-                        "campaign_cpm"
-                    )
+                    .getTextInputValue("campaign_cpm")
                     .trim();
 
             const details =
@@ -232,14 +220,13 @@ export default {
             const campaign = {
                 id,
                 name,
-                client,
+                client: campaignClient,
                 budget,
                 cpm,
                 deadline,
                 description,
                 emoji: draft.emoji || "🎬",
-                platform:
-                    draft.platform || "TikTok",
+                platform: draft.platform || "TikTok",
                 channel: campaignChannel.id,
                 category: null,
                 submitChannel: null,
@@ -258,7 +245,7 @@ export default {
             };
 
             await saveCampaign(
-                interaction.client,
+                client,
                 id,
                 campaign
             );
