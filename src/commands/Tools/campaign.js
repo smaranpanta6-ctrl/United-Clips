@@ -13,6 +13,7 @@ import {
 
 import {
     saveMember,
+    getMember,
     deleteMember
 } from "../../utils/campaignMembers.js";
 
@@ -745,7 +746,88 @@ async function handleStatus(interaction, campaign) {
         ephemeral: true
     });
 }
+async function handleMyStats(interaction, campaign) {
+    await interaction.deferReply({
+        ephemeral: true
+    });
 
+    const member = await getMember(
+        interaction.client,
+        campaign.id,
+        interaction.user.id
+    );
+
+    if (!member) {
+        return interaction.editReply({
+            content:
+                "❌ You haven't joined this campaign yet."
+        });
+    }
+
+    const submitted =
+        Array.isArray(member.clips)
+            ? member.clips.length
+            : 0;
+
+    const approvedViews =
+        Number(member.approvedViews || 0);
+
+    const payout =
+        Number(member.payout || 0);
+
+    const approved =
+        Number(member.approvedClips || 0);
+
+    const pending =
+        Number(member.pendingClips || 0);
+
+    const rejected =
+        Number(member.rejectedClips || 0);
+
+    const embed = new EmbedBuilder()
+        .setColor("#5865F2")
+        .setTitle(`📊 My Stats — ${campaign.name}`)
+        .addFields(
+            {
+                name: "📤 Submitted Clips",
+                value: String(submitted),
+                inline: true
+            },
+            {
+                name: "✅ Approved",
+                value: String(approved),
+                inline: true
+            },
+            {
+                name: "⏳ Pending",
+                value: String(pending),
+                inline: true
+            },
+            {
+                name: "❌ Rejected",
+                value: String(rejected),
+                inline: true
+            },
+            {
+                name: "👀 Approved Views",
+                value: approvedViews.toLocaleString("en-US"),
+                inline: true
+            },
+            {
+                name: "💵 Earnings",
+                value: `$${payout.toFixed(2)}`,
+                inline: true
+            }
+        )
+        .setFooter({
+            text: "Your personal campaign statistics"
+        })
+        .setTimestamp();
+
+    return interaction.editReply({
+        embeds: [embed]
+    });
+}
 export default {
     data: new SlashCommandBuilder()
         .setName("campaign")
