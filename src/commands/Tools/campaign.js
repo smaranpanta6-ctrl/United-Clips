@@ -724,22 +724,26 @@ aasync function handleLeave(interaction, campaign) {
             );
 
         if (!savedMember && !hasRole && !isInMembers) {
-            return interaction.editReply({
-                content:
-                    `❌ You are not currently in **${campaign.name}**.`
-            });
-        }
+             return interaction.editReply({
+            embeds: [joinEmbed],
+            components
+        });
+    } catch (error) {
+        console.error(
+            `Failed to join campaign ${campaign.id}:`,
+            error
+        );
 
-        if (role && hasRole) {
-            if (!role.editable) {
-                return interaction.editReply({
-                    content: [
-                        "❌ I cannot remove the campaign role.",
-                        "",
-                        "Move the bot role above the campaign role and give it **Manage Roles**."
-                    ].join("\n")
-                });
-            }
+        return interaction.editReply({
+            content: [
+                "❌ I could not add you to this campaign.",
+                "",
+                "Check that the bot has **Manage Roles** and **Manage Channels**, and that its role is above the campaign role."
+            ].join("\n")
+        });
+    }
+}
+
 
             await interaction.member.roles.remove(
                 role,
