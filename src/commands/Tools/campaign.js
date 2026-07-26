@@ -672,52 +672,172 @@ async function handleJoin(interaction, campaign) {
     }
 }
 
-async function handleLeave(interaction, campaign) {
-    if (!Array.isArray(campaign.members)) {
-        campaign.members = [];
-    }
-
-    await interaction.member.fetch();
-
-    const memberIsSaved =
-        campaign.members.includes(interaction.user.id);
-
-    const memberHasRole =
-        campaign.role &&
-        interaction.member.roles.cache.has(campaign.role);
-
-    if (!memberIsSaved && !memberHasRole) {
-        return interaction.reply({
-            content:
-                `❌ You are not currently in **${campaign.name}**.`,
-            ephemeral: true
-        });
-    }
-
+aasync function handleLeave(interaction, campaign) {
     await interaction.deferReply({
         ephemeral: true
     });
 
     try {
-        const role = campaign.role
-            ? interaction.guild.roles.cache.get(
-                  campaign.role
-              ) ||
-              (await interaction.guild.roles
-                  .fetch(campaign.role)
-                  .catch(() => null))
-            : null;
+        await interaction.member.fetch();
 
-        if (role) {
+        if (!Array.isArray(campaign.members)) {
+            campaign.members = [];
+        }
+
+        const savedMember = await getMember(
+            interaction.client,
+            campaign.id,
+            interaction.user.id
+        ).catch(() => null);
+
+        let role = null;
+
+        if (campaign.role) {
+            role =
+                interaction.guild.roles.cache.get(
+                    campaign.role
+                ) ||
+                (await interaction.guild.roles
+                    .fetch(campaign.role)
+                    .catch(() => null));
+        }
+
+        /*
+         * Fallback: find the role by the campaign name
+         * if campaign.role was not saved correctly.
+         */
+        if (!role) {
+            role = interaction.guild.roles.cache.find(
+                guildRole =>
+                    guildRole.name ===
+                    `${campaign.emoji || "🎬"} ${campaign.name}`
+            );
+        }
+
+        const hasRole =
+            role &&
+            interaction.member.roles.cache.has(role.id);
+
+        const isInMembers =
+            campaign.members.includes(
+                interaction.user.id
+            );
+
+        if (!savedMember && !hasRole && !isInMembers) {
+            return interaction.editReply({
+                content:
+                    `❌ You are not currently in **${campaign.name}**.`
+            });
+        }
+
+        if (role && hasRole) {
             if (!role.editable) {
                 return interaction.editReply({
                     content: [
-                        "❌ I cannot remove your campaign role.",
+                        "❌ I cannot remove the campaign role.",
                         "",
-                        "Move the bot role above the campaign role in **Server Settings → Roles** and enable **Manage Roles**."
+                        "Move the bot role above the campaign role and give it **Manage Roles**."
                     ].join("\n")
                 });
             }
+
+            await interaction.member.roles.remove(
+                role,
+                `Left campaign: ${campaign.name}`
+            );
+        }
+
+        campaign.members = campaign.members.filter(
+            memberId =>
+                memberId !== interaction.user.id
+        );
+
+        await deleteMember(
+            interaction.client,
+            campaign.id,
+            interaction.user.id
+        ).catch(error => {
+            console.error(
+                "Could not delete member record:",
+                error
+            );
+        });
+
+        /*
+         * Hide the workspace from the member.
+         */
+        if (campaign.category) {
+            const category =
+                interaction.guild.channels.cache.get(
+                    campaign.category
+                ) ||
+                (await interaction.guild.channels
+                    .fetch(campaign.category)
+                    .catch(() => null));
+
+            if (
+                category &&
+                category.type ===
+                    ChannelType.GuildCategory
+            ) {
+                await category.permissionOverwrites.edit(
+                    interaction.user.id,
+                    {
+                        ViewChannel: false
+                    }
+                );
+            }
+
+            const workspaceChannels =
+                interaction.guild.channels.cache.filter(
+                    channel =>
+                        channel.parentId ===
+                        campaign.category
+                );
+
+            for (
+                const channel
+                of workspaceChannels.values()
+            ) {
+                await channel.permissionOverwrites.edit(
+                    interaction.user.id,
+                    {
+                        ViewChannel: false
+                    }
+                ).catch(() => null);
+            }
+        }
+
+        await saveCampaign(
+            interaction.client,
+            campaign.id,
+            campaign
+        );
+
+        return interaction.editReply({
+            content: [
+                `✅ You left **${campaign.name}**.`,
+                "",
+                "Your campaign role and workspace access were removed."
+            ].join("\n"),
+            embeds: [],
+            components: []
+        });
+    } catch (error) {
+        console.error(
+            `Campaign leave failed for ${campaign.id}:`,
+            error
+        );
+
+        return interaction.editReply({
+            content: [
+                "❌ Leaving the campaign failed.",
+                "",
+                "Check the Railway logs for the exact error."
+            ].join("\n")
+        });
+    }
+}
 
             await interaction.member.roles.remove(
                 role,
