@@ -858,7 +858,6 @@ async function handleLeave(interaction, campaign) {
         });
     }
 }
-
 async function handleStatus(interaction, campaign) {
     const numericBudget = moneyNumber(campaign.budget);
     const numericPaid = moneyNumber(campaign.paid);
@@ -993,25 +992,18 @@ async function handleMyStats(interaction, campaign) {
         });
     }
 
-    const submitted =
-        Array.isArray(member.clips)
-            ? member.clips.length
-            : 0;
+    const submitted = Array.isArray(member.clips)
+        ? member.clips.length
+        : 0;
 
-    const approvedViews =
-        Number(member.approvedViews || 0);
+    const approvedViews = Number(
+        member.approvedViews || 0
+    );
 
-    const payout =
-        Number(member.payout || 0);
-
-    const approved =
-        Number(member.approvedClips || 0);
-
-    const pending =
-        Number(member.pendingClips || 0);
-
-    const rejected =
-        Number(member.rejectedClips || 0);
+    const payout = Number(member.payout || 0);
+    const approved = Number(member.approvedClips || 0);
+    const pending = Number(member.pendingClips || 0);
+    const rejected = Number(member.rejectedClips || 0);
 
     const embed = new EmbedBuilder()
         .setColor("#5865F2")
