@@ -259,19 +259,6 @@ async function updatePublicCampaignMessage(
         return;
     }
 
-   async function updatePublicCampaignMessage(
-    interaction,
-    campaign
-) {
-    const message = await findPublicCampaignMessage(
-        interaction,
-        campaign
-    );
-
-    if (!message) {
-        return;
-    }
-
     await message.edit({
         components: [
             buildCampaignButtons(campaign)
