@@ -233,10 +233,10 @@ try {
 
     campaign.googleSheetUrl =
         googleSheet.spreadsheetUrl;
-} catch (error) {
+} catch (googleError) {
     console.error(
         "Google spreadsheet creation failed:",
-        error
+        googleError
     );
 
     campaign.googleSheetId = null;
@@ -256,7 +256,7 @@ try {
     ]
 });
 
-           const responseLines = [
+            const responseLines = [
     "✅ Campaign created successfully.",
     "",
     `**Public campaign:** ${campaignChannel}`
@@ -268,7 +268,7 @@ if (campaign.googleSheetUrl) {
     );
 } else {
     responseLines.push(
-        "⚠️ The campaign was created, but the Google spreadsheet failed."
+        "⚠️ Google Sheet creation failed, but the campaign was still created."
     );
 }
 
