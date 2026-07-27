@@ -36,29 +36,95 @@ function isStaff(interaction) {
     );
 }
 
-function updatedReviewEmbed(message, submission, status, rejectionReason) {
+async function safelyRespond(interaction, payload) {
+    try {
+        if (interaction.deferred) {
+            return await interaction.editReply(payload);
+        }
+
+        if (interaction.replied) {
+            return await interaction.followUp({
+                ...payload,
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
+        return await interaction.reply({
+            ...payload,
+            flags: MessageFlags.Ephemeral
+        });
+    } catch (error) {
+        if (
+            error?.code !== 40060 &&
+            error?.code !== "InteractionAlreadyReplied"
+        ) {
+            console.error(
+                "Failed to respond to review interaction:",
+                error
+            );
+        }
+
+        return null;
+    }
+}
+
+function updatedReviewEmbed(
+    message,
+    submission,
+    status,
+    rejectionReason
+) {
     const original = message.embeds?.[0];
+
     const embed = original
         ? EmbedBuilder.from(original)
-        : new EmbedBuilder().setTitle("Clip Submission");
+        : new EmbedBuilder().setTitle(
+            "Clip Submission"
+        );
 
-    const fields = (original?.fields || []).map(field => {
+    const fields = [];
+
+    let foundStatus = false;
+
+    for (const field of original?.fields || []) {
+        // Remove the old rejection reason so it does
+        // not duplicate when staff changes the decision.
+        if (field.name === "Rejection Reason") {
+            continue;
+        }
+
         if (field.name === "Status") {
-            return {
-                ...field,
+            foundStatus = true;
+
+            fields.push({
+                name: "Status",
                 value:
                     status === "approved"
                         ? "🟢 Approved"
-                        : "🔴 Rejected"
-            };
+                        : "🔴 Rejected",
+                inline: field.inline
+            });
+
+            continue;
         }
 
-        return {
+        fields.push({
             name: field.name,
             value: field.value,
             inline: field.inline
-        };
-    });
+        });
+    }
+
+    if (!foundStatus) {
+        fields.push({
+            name: "Status",
+            value:
+                status === "approved"
+                    ? "🟢 Approved"
+                    : "🔴 Rejected",
+            inline: true
+        });
+    }
 
     if (
         status === "rejected" &&
@@ -80,17 +146,21 @@ function updatedReviewEmbed(message, submission, status, rejectionReason) {
         )
         .setFooter({
             text:
-                `${status === "approved" ? "Approved" : "Rejected"} by ${message.guild?.members?.me?.displayName || "staff"}`
+                status === "approved"
+                    ? "Submission approved"
+                    : "Submission rejected"
         })
         .setTimestamp();
 
     return embed;
 }
 
-function disabledReviewButtons(submissionId, status) {
+function activeReviewButtons(submissionId, status) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`submission_approve_${submissionId}`)
+            .setCustomId(
+                `submission_approve_${submissionId}`
+            )
             .setLabel(
                 status === "approved"
                     ? "Approved"
@@ -98,9 +168,14 @@ function disabledReviewButtons(submissionId, status) {
             )
             .setEmoji("✅")
             .setStyle(ButtonStyle.Success)
-            .setDisabled(true),
+            // Disable only the decision that is
+            // already selected.
+            .setDisabled(status === "approved"),
+
         new ButtonBuilder()
-            .setCustomId(`submission_reject_${submissionId}`)
+            .setCustomId(
+                `submission_reject_${submissionId}`
+            )
             .setLabel(
                 status === "rejected"
                     ? "Rejected"
@@ -108,8 +183,147 @@ function disabledReviewButtons(submissionId, status) {
             )
             .setEmoji("❌")
             .setStyle(ButtonStyle.Danger)
-            .setDisabled(true)
+            // Staff can still change Approved to
+            // Rejected and vice versa.
+            .setDisabled(status === "rejected")
     );
+}
+
+async function sendCreatorReviewDm({
+    client,
+    submission,
+    campaign,
+    status,
+    rejectionReason
+}) {
+    try {
+        const creator = await client.users.fetch(
+            submission.user_id
+        );
+
+        const embed = new EmbedBuilder()
+            .setTitle(
+                status === "approved"
+                    ? "✅ Submission Approved"
+                    : "❌ Submission Rejected"
+            )
+            .addFields(
+                {
+                    name: "Campaign",
+                    value:
+                        campaign?.name ||
+                        `Campaign #${submission.campaign_id}`
+                },
+                {
+                    name: "Submission",
+                    value: `#${submission.id}`,
+                    inline: true
+                },
+                {
+                    name: "Platform",
+                    value:
+                        submission.platform ||
+                        "Unknown",
+                    inline: true
+                }
+            )
+            .setColor(
+                status === "approved"
+                    ? 0x57f287
+                    : 0xed4245
+            )
+            .setTimestamp();
+
+        if (status === "approved") {
+            embed.setDescription(
+                "Congratulations! Your clip has been approved.\n\nThanks for participating in United Clips."
+            );
+        } else {
+            embed
+                .setDescription(
+                    "Your clip was not approved. You may resubmit if the campaign is still active."
+                )
+                .addFields({
+                    name: "Reason",
+                    value:
+                        rejectionReason ||
+                        "No reason provided."
+                });
+        }
+
+        await creator.send({
+            embeds: [embed]
+        });
+    } catch {
+        // Ignore closed DMs or unavailable users.
+    }
+}
+
+function normalizeStatus(status) {
+    return String(status || "")
+        .trim()
+        .toLowerCase();
+}
+
+function updateCampaignCounters({
+    campaign,
+    previousStatus,
+    newStatus
+}) {
+    const previous = normalizeStatus(previousStatus);
+    const next = normalizeStatus(newStatus);
+
+    if (previous === next) {
+        return;
+    }
+
+    // First review: Pending -> Approved/Rejected
+    if (
+        previous !== "approved" &&
+        previous !== "rejected"
+    ) {
+        campaign.pendingSubmissions = Math.max(
+            0,
+            Number(
+                campaign.pendingSubmissions || 0
+            ) - 1
+        );
+    }
+
+    // Remove the previous decision when staff
+    // changes Approved <-> Rejected.
+    if (previous === "approved") {
+        campaign.approvedSubmissions = Math.max(
+            0,
+            Number(
+                campaign.approvedSubmissions || 0
+            ) - 1
+        );
+    }
+
+    if (previous === "rejected") {
+        campaign.rejectedSubmissions = Math.max(
+            0,
+            Number(
+                campaign.rejectedSubmissions || 0
+            ) - 1
+        );
+    }
+
+    // Add the new decision.
+    if (next === "approved") {
+        campaign.approvedSubmissions =
+            Number(
+                campaign.approvedSubmissions || 0
+            ) + 1;
+    }
+
+    if (next === "rejected") {
+        campaign.rejectedSubmissions =
+            Number(
+                campaign.rejectedSubmissions || 0
+            ) + 1;
+    }
 }
 
 export async function finalizeSubmissionReview({
@@ -123,17 +337,24 @@ export async function finalizeSubmissionReview({
     reviewMessageId = null
 }) {
     if (!isStaff(interaction)) {
-        const payload = {
-            content: "❌ Only staff can review submissions.",
-            flags: MessageFlags.Ephemeral
-        };
+        await safelyRespond(interaction, {
+            content:
+                "❌ Only staff can review submissions."
+        });
 
-        if (interaction.deferred || interaction.replied) {
-            await interaction.followUp(payload);
-        } else {
-            await interaction.reply(payload);
-        }
         return null;
+    }
+
+    const normalizedStatus =
+        normalizeStatus(status);
+
+    if (
+        normalizedStatus !== "approved" &&
+        normalizedStatus !== "rejected"
+    ) {
+        throw new Error(
+            `Invalid review status: ${status}`
+        );
     }
 
     const submission = await getSubmission(
@@ -142,31 +363,45 @@ export async function finalizeSubmissionReview({
     );
 
     if (!submission) {
-        throw new Error(
-            `Submission #${submissionId} was not found.`
-        );
+        await safelyRespond(interaction, {
+            content:
+                `❌ Submission #${submissionId} was not found.`
+        });
+
+        return null;
+    }
+
+    const previousStatus =
+        normalizeStatus(submission.status);
+
+    if (previousStatus === normalizedStatus) {
+        await safelyRespond(interaction, {
+            content:
+                normalizedStatus === "approved"
+                    ? `⚠️ Submission #${submission.id} is already approved.`
+                    : `⚠️ Submission #${submission.id} is already rejected.`
+        });
+
+        return null;
     }
 
     const reviewed = await reviewSubmission(client, {
         submissionId,
-        status,
+        status: normalizedStatus,
         reviewedBy: interaction.user.id,
-        rejectionReason,
+        rejectionReason:
+            normalizedStatus === "rejected"
+                ? rejectionReason
+                : null,
         staffNotes
     });
 
     if (!reviewed) {
-        const payload = {
+        await safelyRespond(interaction, {
             content:
-                "⚠️ This submission was already reviewed.",
-            flags: MessageFlags.Ephemeral
-        };
+                "❌ The submission could not be updated."
+        });
 
-        if (interaction.deferred || interaction.replied) {
-            await interaction.followUp(payload);
-        } else {
-            await interaction.reply(payload);
-        }
         return null;
     }
 
@@ -176,18 +411,11 @@ export async function finalizeSubmissionReview({
     );
 
     if (campaign) {
-        campaign.pendingSubmissions = Math.max(
-            0,
-            Number(campaign.pendingSubmissions || 0) - 1
-        );
-
-        if (status === "approved") {
-            campaign.approvedSubmissions =
-                Number(campaign.approvedSubmissions || 0) + 1;
-        } else {
-            campaign.rejectedSubmissions =
-                Number(campaign.rejectedSubmissions || 0) + 1;
-        }
+        updateCampaignCounters({
+            campaign,
+            previousStatus,
+            newStatus: normalizedStatus
+        });
 
         await saveCampaign(
             client,
@@ -197,29 +425,45 @@ export async function finalizeSubmissionReview({
 
         if (campaign.googleSheetId) {
             try {
-                const creator = await interaction.guild.members
-                    .fetch(submission.user_id)
-                    .catch(() => null);
+                const creator =
+                    await interaction.guild.members
+                        .fetch(submission.user_id)
+                        .catch(() => null);
 
                 await appendSubmissionReview({
-                    spreadsheetId: campaign.googleSheetId,
-                    reviewedAt: reviewed.reviewed_at,
-                    campaignName: campaign.name,
+                    spreadsheetId:
+                        campaign.googleSheetId,
+                    reviewedAt:
+                        reviewed.reviewed_at ||
+                        new Date(),
+                    campaignName:
+                        campaign.name,
                     creatorName:
                         creator?.user?.tag ||
                         submission.user_id,
-                    creatorId: submission.user_id,
-                    videoUrl: submission.video_url,
-                    platform: submission.platform,
+                    creatorId:
+                        submission.user_id,
+                    videoUrl:
+                        submission.video_url,
+                    platform:
+                        submission.platform,
                     status:
-                        status === "approved"
+                        normalizedStatus ===
+                        "approved"
                             ? "Approved"
                             : "Rejected",
-                    rejectionReason,
-                    reviewedBy: interaction.user.tag,
+                    rejectionReason:
+                        normalizedStatus ===
+                        "rejected"
+                            ? rejectionReason
+                            : null,
+                    reviewedBy:
+                        interaction.user.tag,
                     staffNotes,
-                    submittedAt: submission.created_at,
-                    submissionId: submission.id
+                    submittedAt:
+                        submission.created_at,
+                    submissionId:
+                        submission.id
                 });
             } catch (sheetError) {
                 console.error(
@@ -230,21 +474,27 @@ export async function finalizeSubmissionReview({
         }
     }
 
-    let reviewMessage = interaction.message || null;
+    let reviewMessage =
+        interaction.message || null;
 
     if (
         reviewChannelId &&
         reviewMessageId &&
-        (!reviewMessage || reviewMessage.id !== reviewMessageId)
+        (
+            !reviewMessage ||
+            reviewMessage.id !== reviewMessageId
+        )
     ) {
-        const channel = await interaction.guild.channels
-            .fetch(reviewChannelId)
-            .catch(() => null);
+        const channel =
+            await interaction.guild.channels
+                .fetch(reviewChannelId)
+                .catch(() => null);
 
         if (channel?.isTextBased()) {
-            reviewMessage = await channel.messages
-                .fetch(reviewMessageId)
-                .catch(() => null);
+            reviewMessage =
+                await channel.messages
+                    .fetch(reviewMessageId)
+                    .catch(() => null);
         }
     }
 
@@ -254,27 +504,37 @@ export async function finalizeSubmissionReview({
                 updatedReviewEmbed(
                     reviewMessage,
                     submission,
-                    status,
+                    normalizedStatus,
                     rejectionReason
                 )
             ],
             components: [
-                disabledReviewButtons(
+                activeReviewButtons(
                     submission.id,
-                    status
+                    normalizedStatus
                 )
             ]
         });
     }
 
-    const confirmation =
-        status === "approved"
-            ? `✅ Submission #${submission.id} approved.`
-            : `❌ Submission #${submission.id} rejected: ${rejectionReason}`;
+    await sendCreatorReviewDm({
+        client,
+        submission,
+        campaign,
+        status: normalizedStatus,
+        rejectionReason
+    });
 
-    await interaction.followUp({
-        content: confirmation,
-        flags: MessageFlags.Ephemeral
+    const confirmation =
+        normalizedStatus === "approved"
+            ? `✅ Submission #${submission.id} approved.`
+            : `❌ Submission #${submission.id} rejected: ${
+                rejectionReason ||
+                "No reason provided"
+            }`;
+
+    await safelyRespond(interaction, {
+        content: confirmation
     });
 
     return reviewed;
