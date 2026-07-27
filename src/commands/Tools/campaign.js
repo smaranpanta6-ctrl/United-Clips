@@ -1124,72 +1124,78 @@ async function handleMyStats(interaction, campaign) {
 }
 export default {
     data: new SlashCommandBuilder()
-        .setName("campaign")
-        .setDescription("Create and manage campaigns")
-        .setDMPermission(false)
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName("create")
-                .setDescription("Open the campaign creation form")
-                .addStringOption(option =>
-                    option
-                        .setName("emoji")
-                        .setDescription(
-                            "Campaign emoji, for example 🎬"
-                        )
-                        .setRequired(false)
-                )
-                .addStringOption(option =>
-    option
-        .setName("platform")
-        .setDescription("Campaign platform")
-        .setRequired(false)
-        .addChoices(
-            {
-                name: "TikTok",
-                value: "TikTok"
-            },
-            {
-                name: "Instagram",
-                value: "Instagram"
-            },
-            {
-                name: "YouTube",
-                value: "YouTube"
-            },
-            {
-                name: "Multiple Platforms",
-                value: "TikTok, Instagram, YouTube"
-            }
-        )
-)
-.addStringOption(option =>
-    option
-        .setName("deadline")
-        .setDescription(
-            "Campaign deadline, for example August 20"
-        )
-        .setRequired(true)
-)
-.addStringOption(option =>
-    option
-        .setName("description")
-        .setDescription(
-            "Short public campaign description"
-        )
-        .setMaxLength(500)
-        .setRequired(true)
-)
-.addStringOption(option =>
-    option
-        .setName("audio")
-        .setDescription(
-            "Paste the audio, sound, Dropbox or Drive URL"
-        )
-        .setMaxLength(1000)
-        .setRequired(false)
-),
-
+    .setName("campaign")
+    .setDescription("Create and manage campaigns")
+    .setDMPermission(false)
+    .addSubcommand(subcommand =>
+        subcommand
+            .setName("create")
+            .setDescription(
+                "Open the campaign creation form"
+            )
+            .addStringOption(option =>
+                option
+                    .setName("emoji")
+                    .setDescription(
+                        "Campaign emoji, for example 🎬"
+                    )
+                    .setRequired(false)
+            )
+            .addStringOption(option =>
+                option
+                    .setName("platform")
+                    .setDescription(
+                        "Campaign platform"
+                    )
+                    .setRequired(false)
+                    .addChoices(
+                        {
+                            name: "TikTok",
+                            value: "TikTok"
+                        },
+                        {
+                            name: "Instagram",
+                            value: "Instagram"
+                        },
+                        {
+                            name: "YouTube",
+                            value: "YouTube"
+                        },
+                        {
+                            name: "Multiple Platforms",
+                            value:
+                                "TikTok, Instagram, YouTube"
+                        }
+                    )
+            )
+            .addStringOption(option =>
+                option
+                    .setName("deadline")
+                    .setDescription(
+                        "Campaign deadline, for example August 20"
+                    )
+                    .setRequired(true)
+            )
+            .addStringOption(option =>
+                option
+                    .setName("description")
+                    .setDescription(
+                        "Short public campaign description"
+                    )
+                    .setMaxLength(500)
+                    .setRequired(true)
+            )
+            .addStringOption(option =>
+                option
+                    .setName("audio")
+                    .setDescription(
+                        "Paste the audio, sound, Dropbox or Drive URL"
+                    )
+                    .setMaxLength(1000)
+                    .setRequired(false)
+            )
+    ),
+    
     async execute(interaction) {
         if (
             interaction.options.getSubcommand() !==
