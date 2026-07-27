@@ -317,9 +317,33 @@ export default {
         }
     }
 
-    // Normal button handlers
-    const [customId, ...args] = interaction.customId.split(":");
-    const button = client.buttons.get(customId);
+   // Normal button handlers
+
+let customId;
+let args = [];
+
+if (interaction.customId.startsWith("submission_approve_")) {
+    customId = "submission_approve";
+    args = [
+        interaction.customId.slice(
+            "submission_approve_".length
+        )
+    ];
+} else if (
+    interaction.customId.startsWith("submission_reject_")
+) {
+    customId = "submission_reject";
+    args = [
+        interaction.customId.slice(
+            "submission_reject_".length
+        )
+    ];
+} else {
+    [customId, ...args] =
+        interaction.customId.split(":");
+}
+
+const button = client.buttons.get(customId);
 
     if (!button) {
         if (!interaction.customId.includes(":") || isCollectorManagedComponent(customId)) {
