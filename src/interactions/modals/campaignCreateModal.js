@@ -224,6 +224,25 @@ const description = draft.description;
     status: "Active"
 };
             
+// Post the public campaign immediately.
+// Google Sheets must not delay or prevent this message.
+const publicMessage = await campaignChannel.send({
+    content: buildCampaignContent(campaign),
+    components: [
+        buildCampaignButtons(campaign)
+    ]
+});
+
+campaign.publicMessageId = publicMessage.id;
+
+// Save the campaign immediately after creating the Discord post.
+await saveCampaign(
+    client,
+    id,
+    campaign
+);
+
+// Try Google Sheets separately.
 try {
     const googleSheet =
         await createCampaignSpreadsheet(campaign);
@@ -243,11 +262,12 @@ try {
     campaign.googleSheetUrl = null;
 }
 
-            await saveCampaign(
-                client,
-                id,
-                campaign
-            );
+// Save again with the Google Sheet result.
+await saveCampaign(
+    client,
+    id,
+    campaign
+);
 
            await campaignChannel.send({
     content: buildCampaignContent(campaign),
