@@ -261,21 +261,6 @@ try {
     campaign.googleSheetId = null;
     campaign.googleSheetUrl = null;
 }
-
-// Save again with the Google Sheet result.
-await saveCampaign(
-    client,
-    id,
-    campaign
-);
-
-           await campaignChannel.send({
-    content: buildCampaignContent(campaign),
-    components: [
-        buildCampaignButtons(campaign)
-    ]
-});
-
             const responseLines = [
     "✅ Campaign created successfully.",
     "",
