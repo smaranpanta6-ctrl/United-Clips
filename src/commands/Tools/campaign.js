@@ -1177,17 +1177,9 @@ export default {
                         value: "TikTok"
                     },
                     {
-                        name: "Instagram",
-                        value: "Instagram"
-                    },
-                    {
-                        name: "YouTube",
-                        value: "YouTube"
-                    },
-                    {
                         name: "Multiple Platforms",
                         value:
-                            "TikTok, Instagram, YouTube"
+                            "TikTok"
                     }
                 )
         )
