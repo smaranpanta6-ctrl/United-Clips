@@ -28,10 +28,11 @@ const STAFF_ROLE_ID = "1529961495402778771";
 const ACTIVE_CATEGORY_ID = "1529961507062812752";
 
 const CAMPAIGN_CHANNEL_NAMES = [
-    "📤-submit",
     "📢-announcements",
+    "📤-submit",
     "💬-chat",
-    "⚠️-rules"
+    "⚠️-rules",
+    "🛡️-staff-review"
 ];
 
 function memberCount(campaign) {
@@ -349,35 +350,115 @@ async function createCampaignWorkspace(
 
     campaign.category = category.id;
 
-    let submitChannel = null;
+   let submitChannel = null;
+let staffReviewChannel = null;
 
-    for (
-        const channelName
-        of CAMPAIGN_CHANNEL_NAMES
-    ) {
-        let created =
-            interaction.guild.channels.cache.find(
-                channel =>
-                    channel.parentId === category.id &&
-                    channel.type === ChannelType.GuildText &&
-                    channel.name === channelName
-            );
+for (
+    const channelName
+    of CAMPAIGN_CHANNEL_NAMES
+) {
+    let created =
+        interaction.guild.channels.cache.find(
+            channel =>
+                channel.parentId === category.id &&
+                channel.type === ChannelType.GuildText &&
+                channel.name === channelName
+        );
 
-        if (!created) {
-            created =
-                await interaction.guild.channels.create({
-                    name: channelName,
-                    type: ChannelType.GuildText,
-                    parent: category.id,
-                    permissionOverwrites
-                });
-        }
+    if (!created) {
+        const isStaffReview =
+            channelName === "🛡️-staff-review";
 
-        if (channelName === "📤-submit") {
-            submitChannel = created;
-        }
+        const channelPermissions =
+            isStaffReview
+                ? [
+                      {
+                          id:
+                              interaction.guild.roles
+                                  .everyone.id,
+                          deny: [
+                              PermissionFlagsBits.ViewChannel
+                          ]
+                      },
+                      {
+                          id: STAFF_ROLE_ID,
+                          allow: [
+                              PermissionFlagsBits.ViewChannel,
+                              PermissionFlagsBits.SendMessages,
+                              PermissionFlagsBits.ReadMessageHistory,
+                              PermissionFlagsBits.ManageMessages
+                          ]
+                      },
+                      {
+                          id: interaction.client.user.id,
+                          allow: [
+                              PermissionFlagsBits.ViewChannel,
+                              PermissionFlagsBits.SendMessages,
+                              PermissionFlagsBits.ReadMessageHistory,
+                              PermissionFlagsBits.ManageMessages,
+                              PermissionFlagsBits.EmbedLinks
+                          ]
+                      },
+                      {
+                          id: role.id,
+                          deny: [
+                              PermissionFlagsBits.ViewChannel
+                          ]
+                      }
+                  ]
+                : permissionOverwrites;
+
+        created =
+            await interaction.guild.channels.create({
+                name: channelName,
+                type: ChannelType.GuildText,
+                parent: category.id,
+                permissionOverwrites:
+                    channelPermissions
+            });
     }
 
+    if (channelName === "📤-submit") {
+        submitChannel = created;
+    }
+
+    if (
+        channelName ===
+        "🛡️-staff-review"
+    ) {
+        staffReviewChannel = created;
+    }
+}
+if (staffReviewChannel) {
+    const sheetMessage =
+        await staffReviewChannel.send({
+            content: campaign.googleSheetUrl
+                ? [
+                      "## 📊 Campaign Spreadsheet",
+                      "",
+                      `**Campaign:** ${campaign.name}`,
+                      "",
+                      `[Open Google Sheet](${campaign.googleSheetUrl})`,
+                      "",
+                      "Approved and rejected submissions for this campaign will be recorded here."
+                  ].join("\n")
+                : [
+                      "## ⚠️ Campaign Spreadsheet",
+                      "",
+                      `**Campaign:** ${campaign.name}`,
+                      "",
+                      "The Google spreadsheet was not created successfully."
+                  ].join("\n")
+        });
+
+    await sheetMessage.pin().catch(() => null);
+
+    campaign.staffReviewChannel =
+        staffReviewChannel.id;
+
+    campaign.sheetMessageId =
+        sheetMessage.id;
+}
     if (submitChannel) {
         let existingPanel = null;
 
