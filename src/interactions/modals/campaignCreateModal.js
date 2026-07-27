@@ -8,7 +8,9 @@ import {
 import {
     saveCampaign
 } from "../../utils/database.js";
-
+import {
+    createCampaignSpreadsheet
+} from "../../utils/googleSheets.js";
 const ACTIVE_CATEGORY_ID = "1529961507062812752";
 
 function cleanChannelName(name) {
@@ -208,12 +210,28 @@ const description = draft.description;
     channel: campaignChannel.id,
     category: null,
     role: null,
+
+    googleSheetId: null,
+    googleSheetUrl: null,
+
     members: [],
     submissions: 0,
+    approvedSubmissions: 0,
+    pendingSubmissions: 0,
+    rejectedSubmissions: 0,
     views: 0,
     paid: 0,
     status: "Active"
 };
+            
+const googleSheet =
+    await createCampaignSpreadsheet(campaign);
+
+campaign.googleSheetId =
+    googleSheet.spreadsheetId;
+
+campaign.googleSheetUrl =
+    googleSheet.spreadsheetUrl;
 
             await saveCampaign(
                 client,
@@ -229,14 +247,15 @@ const description = draft.description;
 });
 
             return interaction.editReply({
-                content: [
-                    "✅ Campaign created successfully.",
-                    "",
-                    `**Public campaign:** ${campaignChannel}`,
-                    "",
-                    "The private workspace will be created when the first member joins."
-                ].join("\n")
-            });
+    content: [
+        "✅ Campaign created successfully.",
+        "",
+        `**Public campaign:** ${campaignChannel}`,
+        `**Campaign spreadsheet:** ${campaign.googleSheetUrl}`,
+        "",
+        "The private workspace will be created when the first member joins."
+    ].join("\n")
+});
         } catch (error) {
             console.error(
                 "Campaign modal creation failed:",
