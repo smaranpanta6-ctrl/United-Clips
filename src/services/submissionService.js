@@ -111,17 +111,8 @@ export async function reviewSubmission(
     }
 
     await ensureSubmissionTable(client);
+
     const pool = getPool(client);
-
-    await pool.query(`
-        ALTER TABLE campaign_submissions
-        ADD COLUMN IF NOT EXISTS rejection_reason TEXT
-    `);
-
-    await pool.query(`
-        ALTER TABLE campaign_submissions
-        ADD COLUMN IF NOT EXISTS staff_notes TEXT
-    `);
 
     const result = await pool.query(
         `
@@ -133,14 +124,15 @@ export async function reviewSubmission(
             staff_notes = $5,
             reviewed_at = NOW()
         WHERE id = $1
-          AND status = 'pending'
         RETURNING *
         `,
         [
             submissionId,
             status,
             reviewedBy,
-            rejectionReason,
+            status === "rejected"
+                ? rejectionReason
+                : null,
             staffNotes
         ]
     );
