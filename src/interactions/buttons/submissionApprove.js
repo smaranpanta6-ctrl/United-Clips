@@ -1,3 +1,6 @@
+import { MessageFlags } from "discord.js";
+import { finalizeSubmissionReview } from "../../services/submissionReviewService.js";
+
 export default {
     name: "submission_approve",
 
@@ -7,13 +10,17 @@ export default {
         if (!submissionId) {
             return interaction.reply({
                 content: "❌ Missing submission ID.",
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
-        await interaction.reply({
-            content: `✅ Submission #${submissionId} approved.`,
-            ephemeral: true
+        await interaction.deferUpdate();
+
+        await finalizeSubmissionReview({
+            interaction,
+            client,
+            submissionId,
+            status: "approved"
         });
     }
 };

@@ -1,5 +1,17 @@
 import { google } from "googleapis";
 
+export function getGoogleErrorSummary(error) {
+    return {
+        message: error?.message || "Unknown Google API error",
+        code: error?.code || error?.response?.status || null,
+        error: error?.response?.data?.error || null,
+        description:
+            error?.response?.data?.error_description ||
+            error?.response?.data?.error?.message ||
+            null
+    };
+}
+
 /*
 |--------------------------------------------------------------------------
 | GOOGLE OAUTH CLIENT

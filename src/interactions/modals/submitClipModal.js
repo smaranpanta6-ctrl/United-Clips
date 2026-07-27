@@ -113,6 +113,20 @@ export default {
                         notes || null
                 });
 
+            campaign.submissions =
+                Number(campaign.submissions || 0) + 1;
+            campaign.pendingSubmissions =
+                Number(campaign.pendingSubmissions || 0) + 1;
+
+            const { saveCampaign } =
+                await import("../../utils/database.js");
+
+            await saveCampaign(
+                client,
+                campaign.id,
+                campaign
+            );
+
             /*
              * Send the submission to the campaign's
              * private staff review channel.

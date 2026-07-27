@@ -2,14 +2,16 @@ import {
     ChannelType,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle
+    ButtonStyle,
+    MessageFlags
 } from "discord.js";
 
 import {
     saveCampaign
 } from "../../utils/database.js";
 import {
-    createCampaignSpreadsheet
+    createCampaignSpreadsheet,
+    getGoogleErrorSummary
 } from "../../utils/googleSheets.js";
 const ACTIVE_CATEGORY_ID = "1529961507062812752";
 
@@ -118,7 +120,7 @@ export default {
 
     async execute(interaction, client) {
         await interaction.deferReply({
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
 
         try {
@@ -255,12 +257,19 @@ try {
 } catch (googleError) {
     console.error(
         "Google spreadsheet creation failed:",
-        googleError
+        getGoogleErrorSummary(googleError)
     );
 
     campaign.googleSheetId = null;
     campaign.googleSheetUrl = null;
 }
+
+await saveCampaign(
+    client,
+    id,
+    campaign
+);
+
             const responseLines = [
     "✅ Campaign created successfully.",
     "",
