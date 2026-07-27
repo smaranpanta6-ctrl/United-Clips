@@ -313,7 +313,9 @@ async function createCampaignWorkspace(
     const permissionOverwrites = [
         {
             id: interaction.guild.roles.everyone.id,
-            deny: [PermissionFlagsBits.ViewChannel]
+            deny: [
+                PermissionFlagsBits.ViewChannel
+            ]
         },
         {
             id: STAFF_ROLE_ID,
@@ -336,9 +338,11 @@ async function createCampaignWorkspace(
 
     const category =
         await interaction.guild.channels.create({
-            name: `${campaign.emoji || "🎬"} ${campaign.name}`
-                .toUpperCase()
-                .slice(0, 100),
+            name:
+                `${campaign.emoji || "🎬"} ${campaign.name}`
+                    .toUpperCase()
+                    .slice(0, 100),
+
             type: ChannelType.GuildCategory,
             permissionOverwrites
         });
@@ -347,82 +351,84 @@ async function createCampaignWorkspace(
 
     let submitChannel = null;
 
-    for (const channelName of CAMPAIGN_CHANNEL_NAMES) {
-    let created =
-        interaction.guild.channels.cache.find(
-            channel =>
-                channel.parentId === category.id &&
-                channel.type === ChannelType.GuildText &&
-                channel.name === channelName
-        );
+    for (
+        const channelName
+        of CAMPAIGN_CHANNEL_NAMES
+    ) {
+        let created =
+            interaction.guild.channels.cache.find(
+                channel =>
+                    channel.parentId === category.id &&
+                    channel.type === ChannelType.GuildText &&
+                    channel.name === channelName
+            );
 
-    if (!created) {
-        created =
-            await interaction.guild.channels.create({
-                name: channelName,
-                type: ChannelType.GuildText,
-                parent: category.id,
-                permissionOverwrites
-            });
-    }
+        if (!created) {
+            created =
+                await interaction.guild.channels.create({
+                    name: channelName,
+                    type: ChannelType.GuildText,
+                    parent: category.id,
+                    permissionOverwrites
+                });
+        }
 
-    if (channelName === "📤-submit") {
-        submitChannel = created;
+        if (channelName === "📤-submit") {
+            submitChannel = created;
+        }
     }
-}
 
     if (submitChannel) {
-    let existingPanel = null;
+        let existingPanel = null;
 
-    if (campaign.workspacePanel) {
-        existingPanel = await submitChannel.messages
-            .fetch(campaign.workspacePanel)
-            .catch(() => null);
-    }
+        if (campaign.workspacePanel) {
+            existingPanel =
+                await submitChannel.messages
+                    .fetch(campaign.workspacePanel)
+                    .catch(() => null);
+        }
 
-    if (!existingPanel) {
-        const recentMessages =
-            await submitChannel.messages.fetch({
-                limit: 20
-            });
+        if (!existingPanel) {
+            const recentMessages =
+                await submitChannel.messages.fetch({
+                    limit: 20
+                });
 
-        existingPanel = recentMessages.find(
-            message =>
-                message.author.id ===
-                    interaction.client.user.id &&
-                message.components.some(row =>
-                    row.components.some(
-                        component =>
-                            component.customId ===
-                            `campaign_mystats_${campaign.id}`
+            existingPanel = recentMessages.find(
+                message =>
+                    message.author.id ===
+                        interaction.client.user.id &&
+                    message.components.some(row =>
+                        row.components.some(
+                            component =>
+                                component.customId ===
+                                `campaign_mystats_${campaign.id}`
+                        )
                     )
-                )
-        );
-    }
+            );
+        }
 
-    if (!existingPanel) {
-        existingPanel = await submitChannel.send({
-            embeds: [buildWorkspaceEmbed(campaign)],
-            components: [
-                buildWorkspaceButtons(campaign)
-            ]
-        });
+        if (!existingPanel) {
+            existingPanel =
+                await submitChannel.send({
+                    embeds: [
+                        buildWorkspaceEmbed(campaign)
+                    ],
+                    components: [
+                        buildWorkspaceButtons(campaign)
+                    ]
+                });
 
-        await existingPanel.pin().catch(() => null);
-    }
+            await existingPanel
+                .pin()
+                .catch(() => null);
+        }
 
-    campaign.submitChannel = submitChannel.id;
-    campaign.workspacePanel = existingPanel.id;
-}
-        const panel = await submitChannel.send({
-            embeds: [buildWorkspaceEmbed(campaign)],
-            components: [buildWorkspaceButtons(campaign)]
-        });
+        campaign.submitChannel =
+            submitChannel.id;
 
-        await panel.pin().catch(() => null);
-
-        campaign.submitChannel = submitChannel.id;
-        campaign.workspacePanel = panel.id;
+        campaign.workspacePanel =
+            existingPanel.id;
     }
 
     await saveCampaign(
