@@ -6,7 +6,7 @@ const clientSecret =
     process.env.GOOGLE_OAUTH_CLIENT_SECRET;
 
 const redirectUri =
-    "http://localhost:3000/oauth2callback";
+    "https://special-xylophone-xr959994ggrw3pj7p-3000.app.github.dev/oauth2callback";
 
 if (!clientId || !clientSecret) {
     console.error(
