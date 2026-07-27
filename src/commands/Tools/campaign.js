@@ -371,7 +371,7 @@ async function createCampaignWorkspace(
     }
 }
 
-    if (submitChannel) {if (submitChannel) {
+    if (submitChannel) {
     let existingPanel = null;
 
     if (campaign.workspacePanel) {
