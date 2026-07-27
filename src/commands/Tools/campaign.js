@@ -348,20 +348,72 @@ async function createCampaignWorkspace(
     let submitChannel = null;
 
     for (const channelName of CAMPAIGN_CHANNEL_NAMES) {
-        const created =
+    let created =
+        interaction.guild.channels.cache.find(
+            channel =>
+                channel.parentId === category.id &&
+                channel.type === ChannelType.GuildText &&
+                channel.name === channelName
+        );
+
+    if (!created) {
+        created =
             await interaction.guild.channels.create({
                 name: channelName,
                 type: ChannelType.GuildText,
                 parent: category.id,
                 permissionOverwrites
             });
-
-        if (channelName === "📤-submit") {
-            submitChannel = created;
-        }
     }
 
-    if (submitChannel) {
+    if (channelName === "📤-submit") {
+        submitChannel = created;
+    }
+}
+
+    if (submitChannel) {if (submitChannel) {
+    let existingPanel = null;
+
+    if (campaign.workspacePanel) {
+        existingPanel = await submitChannel.messages
+            .fetch(campaign.workspacePanel)
+            .catch(() => null);
+    }
+
+    if (!existingPanel) {
+        const recentMessages =
+            await submitChannel.messages.fetch({
+                limit: 20
+            });
+
+        existingPanel = recentMessages.find(
+            message =>
+                message.author.id ===
+                    interaction.client.user.id &&
+                message.components.some(row =>
+                    row.components.some(
+                        component =>
+                            component.customId ===
+                            `campaign_mystats_${campaign.id}`
+                    )
+                )
+        );
+    }
+
+    if (!existingPanel) {
+        existingPanel = await submitChannel.send({
+            embeds: [buildWorkspaceEmbed(campaign)],
+            components: [
+                buildWorkspaceButtons(campaign)
+            ]
+        });
+
+        await existingPanel.pin().catch(() => null);
+    }
+
+    campaign.submitChannel = submitChannel.id;
+    campaign.workspacePanel = existingPanel.id;
+}
         const panel = await submitChannel.send({
             embeds: [buildWorkspaceEmbed(campaign)],
             components: [buildWorkspaceButtons(campaign)]
@@ -386,14 +438,17 @@ async function ensureCampaignWorkspace(
     interaction,
     campaign
 ) {
-    let category = campaign.category
-        ? interaction.guild.channels.cache.get(campaign.category)
-        : null;
+    let category = null;
 
-    if (!category && campaign.category) {
-        category = await interaction.guild.channels
-            .fetch(campaign.category)
-            .catch(() => null);
+    // First, find the saved category by ID.
+    if (campaign.category) {
+        category =
+            interaction.guild.channels.cache.get(
+                campaign.category
+            ) ||
+            (await interaction.guild.channels
+                .fetch(campaign.category)
+                .catch(() => null));
     }
 
     if (
@@ -403,6 +458,31 @@ async function ensureCampaignWorkspace(
         return category;
     }
 
+    // If the saved ID is missing, search by category name.
+    const expectedName =
+        `${campaign.emoji || "🎬"} ${campaign.name}`
+            .toUpperCase()
+            .slice(0, 100);
+
+    category = interaction.guild.channels.cache.find(
+        channel =>
+            channel.type === ChannelType.GuildCategory &&
+            channel.name === expectedName
+    );
+
+    if (category) {
+        campaign.category = category.id;
+
+        await saveCampaign(
+            interaction.client,
+            campaign.id,
+            campaign
+        );
+
+        return category;
+    }
+
+    // Create a new workspace only when none exists.
     return createCampaignWorkspace(
         interaction,
         campaign
@@ -1054,31 +1134,55 @@ export default {
                         .setRequired(false)
                 )
                 .addStringOption(option =>
-                    option
-                        .setName("platform")
-                        .setDescription("Campaign platform")
-                        .setRequired(false)
-                        .addChoices(
-                            {
-                                name: "TikTok",
-                                value: "TikTok"
-                            },
-                            {
-                                name: "Instagram",
-                                value: "Instagram"
-                            },
-                            {
-                                name: "YouTube",
-                                value: "YouTube"
-                            },
-                            {
-                                name: "Multiple Platforms",
-                                value:
-                                    "TikTok, Instagram, YouTube"
-                            }
-                        )
-                )
-        ),
+    option
+        .setName("platform")
+        .setDescription("Campaign platform")
+        .setRequired(false)
+        .addChoices(
+            {
+                name: "TikTok",
+                value: "TikTok"
+            },
+            {
+                name: "Instagram",
+                value: "Instagram"
+            },
+            {
+                name: "YouTube",
+                value: "YouTube"
+            },
+            {
+                name: "Multiple Platforms",
+                value: "TikTok, Instagram, YouTube"
+            }
+        )
+)
+.addStringOption(option =>
+    option
+        .setName("deadline")
+        .setDescription(
+            "Campaign deadline, for example August 20"
+        )
+        .setRequired(true)
+)
+.addStringOption(option =>
+    option
+        .setName("description")
+        .setDescription(
+            "Short public campaign description"
+        )
+        .setMaxLength(500)
+        .setRequired(true)
+)
+.addStringOption(option =>
+    option
+        .setName("audio")
+        .setDescription(
+            "Paste the audio, sound, Dropbox or Drive URL"
+        )
+        .setMaxLength(1000)
+        .setRequired(false)
+),
 
     async execute(interaction) {
         if (
@@ -1106,7 +1210,14 @@ export default {
         const platform =
             interaction.options.getString("platform") ||
             "TikTok";
+const deadline =
+    interaction.options.getString("deadline");
 
+const description =
+    interaction.options.getString("description");
+
+const audio =
+    interaction.options.getString("audio");
         if (!interaction.client.campaignDrafts) {
             interaction.client.campaignDrafts =
                 new Map();
@@ -1115,14 +1226,17 @@ export default {
         const draftKey =
             `${interaction.guild.id}:${interaction.user.id}`;
 
-        interaction.client.campaignDrafts.set(
-            draftKey,
-            {
-                emoji,
-                platform,
-                createdAt: Date.now()
-            }
-        );
+       interaction.client.campaignDrafts.set(
+    draftKey,
+    {
+        emoji,
+        platform,
+        deadline,
+        description,
+        audio,
+        createdAt: Date.now()
+    }
+);
 
         const modal = new ModalBuilder()
             .setCustomId("campaign_create_modal")
@@ -1160,22 +1274,22 @@ export default {
             .setMaxLength(30)
             .setRequired(true);
 
-        const detailsInput = new TextInputBuilder()
-            .setCustomId("campaign_details")
-            .setLabel("Deadline and instructions")
-            .setPlaceholder(
-                "Deadline: August 5, 2026\nInstructions: Create clean edits..."
-            )
-            .setStyle(TextInputStyle.Paragraph)
-            .setMaxLength(1000)
-            .setRequired(true);
+        const briefInput = new TextInputBuilder()
+    .setCustomId("campaign_brief")
+    .setLabel("Campaign brief")
+    .setPlaceholder(
+        "Explain exactly what creators should post..."
+    )
+    .setStyle(TextInputStyle.Paragraph)
+    .setMaxLength(2000)
+    .setRequired(true);
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(nameInput),
             new ActionRowBuilder().addComponents(clientInput),
             new ActionRowBuilder().addComponents(budgetInput),
             new ActionRowBuilder().addComponents(cpmInput),
-            new ActionRowBuilder().addComponents(detailsInput)
+            new ActionRowBuilder().addComponents(briefInput)
         );
 
         return interaction.showModal(modal);
