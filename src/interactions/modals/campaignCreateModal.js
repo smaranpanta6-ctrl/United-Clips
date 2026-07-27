@@ -58,25 +58,36 @@ function splitDetails(value) {
 }
 
 function buildCampaignContent(campaign) {
-    return [
-        `## ${campaign.emoji || "🎬"} Get Paid To Post ${campaign.name} Edits!`,
+    const lines = [
+        `## ${campaign.emoji || "🎬"} Get Paid To Post ${campaign.name} Edits`,
         "",
-        "Click **Join Campaign** below to start earning.",
+        campaign.description,
         "",
-        "### 📝 Campaign Info",
-        "",
+        "### 📝 Campaign Information",
         `• **Client:** ${campaign.client}`,
         `• **CPM:** ${campaign.cpm} per 1,000 views`,
         `• **Budget:** ${campaign.budget}`,
         `• **Deadline:** ${campaign.deadline}`,
         `• **Platform:** ${campaign.platform}`,
         "",
-        "### Brief",
+        "### 📋 Brief",
+        campaign.brief
+    ];
+
+    if (campaign.audio) {
+        lines.push(
+            "",
+            "### 🔊 Audio",
+            campaign.audio
+        );
+    }
+
+    lines.push(
         "",
-        campaign.description,
-        "",
-        "## 👇 JOIN BELOW TO START EARNING"
-    ].join("\n");
+        "## 👇 Join below to start earning"
+    );
+
+    return lines.join("\n");
 }
 function buildCampaignButtons(campaign) {
     return new ActionRowBuilder().addComponents(
@@ -156,10 +167,10 @@ export default {
                     .getTextInputValue("campaign_cpm")
                     .trim();
 
-            const details =
-                interaction.fields.getTextInputValue(
-                    "campaign_details"
-                );
+           const brief =
+    interaction.fields.getTextInputValue(
+        "campaign_brief"
+    );
 
             const {
                 deadline,
@@ -182,32 +193,29 @@ export default {
                     parent: activeCategory.id
                 });
 
-            const campaign = {
-                id,
-                name,
-                client: campaignClient,
-                budget,
-                cpm,
-                deadline,
-                description,
-                emoji: draft.emoji || "🎬",
-                platform: draft.platform || "TikTok",
-                channel: campaignChannel.id,
-                category: null,
-                submitChannel: null,
-                workspacePanel: null,
-                role: null,
-                members: [],
-                submissions: 0,
-                approvedSubmissions: 0,
-                pendingSubmissions: 0,
-                rejectedSubmissions: 0,
-                views: 0,
-                approvedViews: 0,
-                paid: 0,
-                status: "Active",
-                createdAt: Date.now()
-            };
+           const campaign = {
+    id,
+    name,
+    client,
+    budget,
+    cpm,
+
+    emoji: draft.emoji || "🎬",
+    platform: draft.platform || "TikTok",
+    deadline: draft.deadline,
+    description: draft.description,
+    brief,
+    audio: draft.audio || null,
+
+    channel: campaignChannel.id,
+    category: null,
+    role: null,
+    members: [],
+    submissions: 0,
+    views: 0,
+    paid: 0,
+    status: "Active"
+};
 
             await saveCampaign(
                 client,
