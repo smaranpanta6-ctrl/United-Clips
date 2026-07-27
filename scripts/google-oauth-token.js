@@ -39,7 +39,7 @@ const server = http.createServer(
         try {
             const url = new URL(
                 request.url,
-                "http://localhost:3000"
+                "https://special-xylophone-xr959994ggrw3pj7p-3000.app.github.dev/oauth2callback"
             );
 
             if (
