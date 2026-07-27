@@ -1,69 +1,76 @@
 import { google } from "googleapis";
 
+/*
+|--------------------------------------------------------------------------
+| GOOGLE OAUTH CLIENT
+|--------------------------------------------------------------------------
+|
+| This authenticates as your personal Gmail account.
+| It replaces the old service-account authentication.
+|
+*/
+
 function getGoogleClients() {
-    const clientEmail =
-        process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    const clientId =
+        process.env.GOOGLE_OAUTH_CLIENT_ID;
 
-    const privateKey =
-        process.env.GOOGLE_PRIVATE_KEY
-            ?.replace(/\\n/g, "\n");
+    const clientSecret =
+        process.env.GOOGLE_OAUTH_CLIENT_SECRET;
 
-    const ownerEmail =
-        process.env.GOOGLE_SHEET_OWNER_EMAIL;
+    const refreshToken =
+        process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
 
-    if (!clientEmail) {
+    if (!clientId) {
         throw new Error(
-            "GOOGLE_SERVICE_ACCOUNT_EMAIL is missing."
+            "GOOGLE_OAUTH_CLIENT_ID is missing."
         );
     }
 
-    if (!privateKey) {
+    if (!clientSecret) {
         throw new Error(
-            "GOOGLE_PRIVATE_KEY is missing."
+            "GOOGLE_OAUTH_CLIENT_SECRET is missing."
         );
     }
 
-    if (!ownerEmail) {
+    if (!refreshToken) {
         throw new Error(
-            "GOOGLE_SHEET_OWNER_EMAIL is missing."
+            "GOOGLE_OAUTH_REFRESH_TOKEN is missing."
         );
     }
 
-    const auth = new google.auth.GoogleAuth({
-        credentials: {
-            client_email: clientEmail,
-            private_key: privateKey
-        },
+    const auth = new google.auth.OAuth2(
+        clientId,
+        clientSecret
+    );
 
-        scopes: [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
+    auth.setCredentials({
+        refresh_token: refreshToken
     });
 
     return {
-        ownerEmail,
-
         sheets: google.sheets({
             version: "v4",
-            auth
-        }),
-
-        drive: google.drive({
-            version: "v3",
             auth
         })
     };
 }
 
+/*
+|--------------------------------------------------------------------------
+| CREATE CAMPAIGN SPREADSHEET
+|--------------------------------------------------------------------------
+*/
+
 export async function createCampaignSpreadsheet(
     campaign
 ) {
-    const {
-        sheets,
-        drive,
-        ownerEmail
-    } = getGoogleClients();
+    if (!campaign?.name) {
+        throw new Error(
+            "Campaign name is required to create a spreadsheet."
+        );
+    }
+
+    const { sheets } = getGoogleClients();
 
     const spreadsheetTitle =
         `United Clips — ${campaign.name}`.slice(
@@ -100,7 +107,10 @@ export async function createCampaignSpreadsheet(
                         }
                     }
                 ]
-            }
+            },
+
+            fields:
+                "spreadsheetId,spreadsheetUrl"
         });
 
     const spreadsheetId =
@@ -125,6 +135,7 @@ export async function createCampaignSpreadsheet(
             data: [
                 {
                     range: "Reviews!A1:L1",
+
                     values: [
                         [
                             "Reviewed At",
@@ -145,6 +156,7 @@ export async function createCampaignSpreadsheet(
 
                 {
                     range: "Payouts!A1:H1",
+
                     values: [
                         [
                             "Creator",
@@ -161,6 +173,7 @@ export async function createCampaignSpreadsheet(
 
                 {
                     range: "Leaderboard!A1:F1",
+
                     values: [
                         [
                             "Rank",
@@ -175,32 +188,48 @@ export async function createCampaignSpreadsheet(
 
                 {
                     range: "Campaign Stats!A1:B9",
+
                     values: [
-                        ["Campaign", campaign.name || ""],
-                        ["Client", campaign.client || ""],
-                        ["Budget", campaign.budget || ""],
-                        ["CPM", campaign.cpm || ""],
-                        ["Deadline", campaign.deadline || ""],
-                        ["Total Submissions", 0],
-                        ["Approved", 0],
-                        ["Rejected", 0],
-                        ["Pending", 0]
+                        [
+                            "Campaign",
+                            campaign.name || ""
+                        ],
+                        [
+                            "Client",
+                            campaign.client || ""
+                        ],
+                        [
+                            "Budget",
+                            campaign.budget || ""
+                        ],
+                        [
+                            "CPM",
+                            campaign.cpm || ""
+                        ],
+                        [
+                            "Deadline",
+                            campaign.deadline || ""
+                        ],
+                        [
+                            "Total Submissions",
+                            0
+                        ],
+                        [
+                            "Approved",
+                            0
+                        ],
+                        [
+                            "Rejected",
+                            0
+                        ],
+                        [
+                            "Pending",
+                            0
+                        ]
                     ]
                 }
             ]
         }
-    });
-
-    await drive.permissions.create({
-        fileId: spreadsheetId,
-
-        requestBody: {
-            type: "user",
-            role: "writer",
-            emailAddress: ownerEmail
-        },
-
-        sendNotificationEmail: false
     });
 
     return {
@@ -208,6 +237,12 @@ export async function createCampaignSpreadsheet(
         spreadsheetUrl
     };
 }
+
+/*
+|--------------------------------------------------------------------------
+| APPEND REVIEW
+|--------------------------------------------------------------------------
+*/
 
 export async function appendSubmissionReview({
     spreadsheetId,
@@ -230,9 +265,7 @@ export async function appendSubmissionReview({
         );
     }
 
-    const {
-        sheets
-    } = getGoogleClients();
+    const { sheets } = getGoogleClients();
 
     await sheets.spreadsheets.values.append({
         spreadsheetId,
@@ -255,11 +288,13 @@ export async function appendSubmissionReview({
                     rejectionReason || "",
                     reviewedBy || "",
                     staffNotes || "",
+
                     submittedAt
                         ? new Date(
                               submittedAt
                           ).toISOString()
                         : "",
+
                     submissionId || ""
                 ]
             ]
