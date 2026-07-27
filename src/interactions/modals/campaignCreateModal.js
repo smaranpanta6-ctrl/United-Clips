@@ -256,15 +256,29 @@ try {
     ]
 });
 
-            rreturn interaction.editReply({
-    content: [
-        "✅ Campaign created successfully.",
-        "",
-        `**Public campaign:** ${campaignChannel}`,
-        `**Campaign spreadsheet:** ${campaign.googleSheetUrl}`,
-        "",
-        "The private workspace will be created when the first member joins."
-    ].join("\n")
+           const responseLines = [
+    "✅ Campaign created successfully.",
+    "",
+    `**Public campaign:** ${campaignChannel}`
+];
+
+if (campaign.googleSheetUrl) {
+    responseLines.push(
+        `**Campaign spreadsheet:** ${campaign.googleSheetUrl}`
+    );
+} else {
+    responseLines.push(
+        "⚠️ The campaign was created, but the Google spreadsheet failed."
+    );
+}
+
+responseLines.push(
+    "",
+    "The private workspace will be created when the first member joins."
+);
+
+return interaction.editReply({
+    content: responseLines.join("\n")
 });
         } catch (error) {
             console.error(
