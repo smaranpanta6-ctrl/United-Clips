@@ -224,14 +224,24 @@ const description = draft.description;
     status: "Active"
 };
             
-const googleSheet =
-    await createCampaignSpreadsheet(campaign);
+try {
+    const googleSheet =
+        await createCampaignSpreadsheet(campaign);
 
-campaign.googleSheetId =
-    googleSheet.spreadsheetId;
+    campaign.googleSheetId =
+        googleSheet.spreadsheetId;
 
-campaign.googleSheetUrl =
-    googleSheet.spreadsheetUrl;
+    campaign.googleSheetUrl =
+        googleSheet.spreadsheetUrl;
+} catch (error) {
+    console.error(
+        "Google spreadsheet creation failed:",
+        error
+    );
+
+    campaign.googleSheetId = null;
+    campaign.googleSheetUrl = null;
+}
 
             await saveCampaign(
                 client,
@@ -246,7 +256,7 @@ campaign.googleSheetUrl =
     ]
 });
 
-            return interaction.editReply({
+            rreturn interaction.editReply({
     content: [
         "✅ Campaign created successfully.",
         "",
