@@ -167,15 +167,13 @@ export default {
                     .getTextInputValue("campaign_cpm")
                     .trim();
 
-           const brief =
+          const brief =
     interaction.fields.getTextInputValue(
         "campaign_brief"
     );
 
-            const {
-                deadline,
-                description
-            } = splitDetails(details);
+            const deadline = draft.deadline;
+const description = draft.description;
 
             const id = Date.now().toString();
 
@@ -193,17 +191,17 @@ export default {
                     parent: activeCategory.id
                 });
 
-           const campaign = {
+          const campaign = {
     id,
     name,
-    client,
+    client: campaignClient,
     budget,
     cpm,
 
     emoji: draft.emoji || "🎬",
     platform: draft.platform || "TikTok",
-    deadline: draft.deadline,
-    description: draft.description,
+    deadline,
+    description,
     brief,
     audio: draft.audio || null,
 
