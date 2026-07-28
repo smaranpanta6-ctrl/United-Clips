@@ -287,10 +287,9 @@ return interaction.editReply({
     content: responseLines.join("\n")
 });
         } catch (error) {
-            console.error(
-                "Campaign modal creation failed:",
-                error
-            );
+          console.error("Campaign modal creation failed");
+console.error(error);
+console.error(error.stack);
 
             return interaction.editReply({
                 content:
