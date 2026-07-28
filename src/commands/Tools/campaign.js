@@ -301,7 +301,126 @@ async function ensureCampaignRole(interaction, campaign) {
 
     return role;
 }
+function formatCampaignInfoForWorkspace(value) {
+    return String(value || "")
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line => {
+            const separatorIndex = line.indexOf(":");
 
+            if (separatorIndex === -1) {
+                return `• ${line}`;
+            }
+
+            const label =
+                line.slice(0, separatorIndex).trim();
+
+            const content =
+                line.slice(separatorIndex + 1).trim();
+
+            return `• **${label}:** ${content}`;
+        })
+        .join("\n");
+}
+
+function formatBriefForWorkspace(value) {
+    return String(value || "")
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map(line =>
+            line.startsWith("•")
+                ? line
+                : `• ${line}`
+        )
+        .join("\n");
+}
+
+function buildAnnouncementMessage(campaign) {
+    const lines = [
+        `# 📢 ${campaign.name}`,
+        "",
+        campaign.description ||
+            `Welcome to the ${campaign.name} campaign.`,
+        "",
+        "## 📝 Campaign Info",
+        "",
+        formatCampaignInfoForWorkspace(
+            campaign.campaignInfo
+        ),
+        "",
+        "## 📄 Brief",
+        "",
+        formatBriefForWorkspace(campaign.brief)
+    ];
+
+    if (campaign.audioLink) {
+        lines.push(
+            "",
+            "## 🔊 Required Audio",
+            "",
+            campaign.audioLink
+        );
+    }
+
+    lines.push(
+        "",
+        "Read the rules before submitting your clips."
+    );
+
+    return lines.join("\n");
+}
+
+function buildRulesMessage(campaign) {
+    const lines = [
+        "# ❌ Campaign Rules",
+        "",
+        "• Follow the campaign brief exactly.",
+        "• Use the required audio when one is provided.",
+        "• The audio must be clearly audible.",
+        "• Do not submit stolen or reposted content.",
+        "• Do not submit the same video more than once.",
+        "• Do not use fake views, bots or paid engagement.",
+        "• Do not use misleading captions or engagement bait.",
+        "• Do not post hateful, illegal or controversial content.",
+        "• Keep the video public until the campaign is paid.",
+        "• Staff may reject clips that do not meet campaign quality standards.",
+        "",
+        "## 📄 Campaign Brief",
+        "",
+        formatBriefForWorkspace(campaign.brief)
+    ];
+
+    if (campaign.audioLink) {
+        lines.push(
+            "",
+            "## 🚨 Use This Sound When Posting",
+            "",
+            "You may not get paid if the required sound is missing.",
+            "",
+            campaign.audioLink
+        );
+    }
+
+    return lines.join("\n");
+}
+
+function buildChatMessage(campaign) {
+    return [
+        `# 💬 ${campaign.name} Chat`,
+        "",
+        "Use this channel for campaign questions and discussion.",
+        "",
+        "• Ask staff for clarification.",
+        "• Share editing ideas.",
+        "• Help other editors.",
+        "• Do not spam.",
+        "• Do not submit clips in this channel.",
+        "",
+        "Use the submit channel to send your finished clip."
+    ].join("\n");
+}
 async function createCampaignWorkspace(
     interaction,
     campaign
@@ -350,7 +469,10 @@ async function createCampaignWorkspace(
 
     campaign.category = category.id;
 
-   let submitChannel = null;
+   let announcementsChannel = null;
+let rulesChannel = null;
+let submitChannel = null;
+let chatChannel = null;
 let staffReviewChannel = null;
 
 for (
@@ -467,16 +589,106 @@ const channelPermissions =
             });
     }
 
-    if (channelName === "📤-submit") {
-        submitChannel = created;
+    if (channelName === "📢-announcements") {
+    announcementsChannel = created;
+}
+
+if (channelName === "⚠️-rules") {
+    rulesChannel = created;
+}
+
+if (channelName === "📤-submit") {
+    submitChannel = created;
+}
+
+if (channelName === "💬-chat") {
+    chatChannel = created;
+}
+
+if (channelName === "🛡️-staff-review") {
+    staffReviewChannel = created;
+}
+}
+    if (announcementsChannel) {
+    const announcementPayload = {
+        content: buildAnnouncementMessage(campaign)
+    };
+
+    if (campaign.audioFile?.url) {
+        announcementPayload.files = [
+            {
+                attachment:
+                    campaign.audioFile.url,
+                name:
+                    campaign.audioFile.name ||
+                    "campaign-audio.mp3"
+            }
+        ];
     }
 
-    if (
-        channelName ===
-        "🛡️-staff-review"
-    ) {
-        staffReviewChannel = created;
+    const announcementMessage =
+        await announcementsChannel.send(
+            announcementPayload
+        );
+
+    await announcementMessage
+        .pin()
+        .catch(() => null);
+
+    campaign.announcementsChannel =
+        announcementsChannel.id;
+
+    campaign.announcementMessageId =
+        announcementMessage.id;
+}
+    if (rulesChannel) {
+    const rulesPayload = {
+        content: buildRulesMessage(campaign)
+    };
+
+    if (campaign.audioFile?.url) {
+        rulesPayload.files = [
+            {
+                attachment:
+                    campaign.audioFile.url,
+                name:
+                    campaign.audioFile.name ||
+                    "campaign-audio.mp3"
+            }
+        ];
     }
+
+    const rulesMessage =
+        await rulesChannel.send(
+            rulesPayload
+        );
+
+    await rulesMessage
+        .pin()
+        .catch(() => null);
+
+    campaign.rulesChannel =
+        rulesChannel.id;
+
+    campaign.rulesMessageId =
+        rulesMessage.id;
+}
+    if (chatChannel) {
+    const chatMessage =
+        await chatChannel.send({
+            content:
+                buildChatMessage(campaign)
+        });
+
+    await chatMessage
+        .pin()
+        .catch(() => null);
+
+    campaign.chatChannel =
+        chatChannel.id;
+
+    campaign.chatMessageId =
+        chatMessage.id;
 }
 if (staffReviewChannel) {
     const sheetMessage =
