@@ -1267,9 +1267,22 @@ export default {
     .addSubcommand(subcommand =>
     subcommand
         .setName("create")
-        .setDescription(
-            "Open the campaign creation form"
+        .setDescription("Create a new clipping campaign")
+
+        .addAttachmentOption(option =>
+            option
+                .setName("audio_file")
+                .setDescription("Upload the campaign audio file")
+                .setRequired(false)
         )
+
+        .addStringOption(option =>
+            option
+                .setName("audio_link")
+                .setDescription("Paste the TikTok audio link")
+                .setRequired(false)
+        )
+)
 
         // REQUIRED OPTIONS FIRST
         .addStringOption(option =>
