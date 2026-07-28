@@ -819,10 +819,12 @@ async function handleJoin(interaction, campaign) {
             components
         });
     } catch (error) {
-        console.error(
-            `Failed to join campaign ${campaign.id}:`,
-            error
-        );
+       console.error("========== JOIN ERROR ==========");
+console.error(error);
+console.error(error?.stack);
+console.error(JSON.stringify(error, null, 2));
+console.error("Campaign:", campaign);
+console.error("===============================");
 
         return interaction.editReply({
             content: [
