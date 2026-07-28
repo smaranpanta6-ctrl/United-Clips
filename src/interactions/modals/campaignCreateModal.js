@@ -14,7 +14,9 @@ import {
     getGoogleErrorSummary
 } from "../../utils/googleSheets.js";
 const ACTIVE_CATEGORY_ID = "1531525611057582182";
-
+import {
+    getCampaignDMSubscribers
+} from "../../utils/campaignNotifications.js";
 function cleanChannelName(name) {
     return String(name)
         .toLowerCase()
@@ -98,7 +100,89 @@ function buildCampaignButtons(campaign) {
             .setStyle(ButtonStyle.Danger)
     );
 }
+function wait(milliseconds) {
+    return new Promise(resolve =>
+        setTimeout(resolve, milliseconds)
+    );
+}
 
+async function notifyCampaignSubscribers(
+    client,
+    guild,
+    campaign,
+    campaignChannel,
+    publicMessage
+) {
+    const subscriberIds =
+        await getCampaignDMSubscribers(
+            client,
+            guild.id
+        );
+
+    let sent = 0;
+    let failed = 0;
+
+    const campaignUrl =
+        `https://discord.com/channels/${guild.id}/${campaignChannel.id}/${publicMessage.id}`;
+
+    for (const userId of subscriberIds) {
+        try {
+            const user =
+                await client.users.fetch(userId);
+
+            await user.send({
+                content: [
+                    `## 💸 New Campaign: ${campaign.name}`,
+                    "",
+                    campaign.description ||
+                        "A new campaign is now available.",
+                    "",
+                    "### 📝 Campaign Information",
+                    "",
+                    formatCampaignInfo(
+                        campaign.campaignInfo
+                    ),
+                    "",
+                    "### 📄 Brief",
+                    "",
+                    campaign.brief,
+                    "",
+                    "Press the button below to view and join the campaign."
+                ].join("\n"),
+
+                components: [
+                    new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setLabel(
+                                "View Campaign"
+                            )
+                            .setEmoji("🚀")
+                            .setStyle(
+                                ButtonStyle.Link
+                            )
+                            .setURL(campaignUrl)
+                    )
+                ]
+            });
+
+            sent++;
+        } catch (error) {
+            failed++;
+
+            console.error(
+                `Could not DM campaign subscriber ${userId}:`,
+                error?.message || error
+            );
+        }
+
+        // Small delay to avoid sending every DM simultaneously.
+        await wait(500);
+    }
+
+    console.log(
+        `Campaign DM notifications complete: ${sent} sent, ${failed} failed.`
+    );
+}
 export default {
     name: "campaign_create_modal",
 
@@ -208,10 +292,19 @@ const description =
 // Post the public campaign immediately.
 // Google Sheets must not delay or prevent this message.
 const messagePayload = {
-    content: buildCampaignContent(campaign),
+    content: [
+        "@everyone",
+        "",
+        buildCampaignContent(campaign)
+    ].join("\n"),
+
     components: [
         buildCampaignButtons(campaign)
-    ]
+    ],
+
+    allowedMentions: {
+        parse: ["everyone"]
+    }
 };
 
 if (campaign.audioFile?.url) {
@@ -227,8 +320,22 @@ if (campaign.audioFile?.url) {
 
 const publicMessage =
     await campaignChannel.send(messagePayload);
-campaign.publicMessageId = publicMessage.id;
 
+campaign.publicMessageId =
+    publicMessage.id;
+
+await notifyCampaignSubscribers(
+    client,
+    interaction.guild,
+    campaign,
+    campaignChannel,
+    publicMessage
+).catch(error => {
+    console.error(
+        "Campaign subscriber notification failed:",
+        error
+    );
+});
 // Save the campaign immediately after creating the Discord post.
 await saveCampaign(
     client,
