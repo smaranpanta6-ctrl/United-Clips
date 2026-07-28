@@ -392,7 +392,7 @@ function buildRulesMessage(campaign) {
             "",
             "## 🚨 Use this sound when posting, or you may not get paid:",
             "",
-            "Use the required sound at 5% volume or higher. If the required sound is missing, muted or replaced, the submission may be rejected.",
+            "the required sound at 7% volume or higher or if the required sound is missing/muted/replaced, the submission may be rejected.",
             "",
             "**SOUND LINK TO USE:**",
             campaign.audioLink
