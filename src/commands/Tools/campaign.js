@@ -1,14 +1,9 @@
 import {
     SlashCommandBuilder,
-    ChannelType,
-    PermissionFlagsBits,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
     ModalBuilder,
     TextInputBuilder,
-    TextInputStyle
+    TextInputStyle,
+    ActionRowBuilder
 } from "discord.js";
 
 import {
@@ -1399,60 +1394,111 @@ const audio =
     }
 );
 
-        const modal = new ModalBuilder()
-            .setCustomId("campaign_create_modal")
-            .setTitle("Create Campaign");
+       const modal =
+    new ModalBuilder()
+        .setCustomId("campaign_create_modal")
+        .setTitle("Create Campaign");
 
-        const nameInput = new TextInputBuilder()
-            .setCustomId("campaign_name")
-            .setLabel("Campaign name")
-            .setPlaceholder("Example: Dead Fresh")
-            .setStyle(TextInputStyle.Short)
-            .setMaxLength(80)
-            .setRequired(true);
+const campaignNameInput =
+    new TextInputBuilder()
+        .setCustomId("campaign_name")
+        .setLabel("Campaign Name")
+        .setPlaceholder("Example: Zemi - Mira")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(100);
 
-        const clientInput = new TextInputBuilder()
-            .setCustomId("campaign_client")
-            .setLabel("Client")
-            .setPlaceholder("Example: Lil Baby")
-            .setStyle(TextInputStyle.Short)
-            .setMaxLength(100)
-            .setRequired(true);
+const campaignClientInput =
+    new TextInputBuilder()
+        .setCustomId("campaign_client")
+        .setLabel("Client")
+        .setPlaceholder("Example: Zemi")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(100);
 
-        const budgetInput = new TextInputBuilder()
-            .setCustomId("campaign_budget")
-            .setLabel("Campaign budget")
-            .setPlaceholder("Example: $2,000")
-            .setStyle(TextInputStyle.Short)
-            .setMaxLength(30)
-            .setRequired(true);
+const campaignInfoInput =
+    new TextInputBuilder()
+        .setCustomId("campaign_info")
+        .setLabel("Campaign Information")
+        .setPlaceholder(
+            "💰 CPM (Pay Rate): $1 per 1,000 views\n" +
+            "🤑 Pot: $3,750\n" +
+            "⬇️ Min views per video: 1,000\n" +
+            "⬆️ Max pay-out per video: $800\n" +
+            "📆 End Date: August 9th 2026\n" +
+            "💵 Payment Method: PayPal\n" +
+            "📱 Platform: TikTok"
+        )
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(2000);
 
-        const cpmInput = new TextInputBuilder()
-            .setCustomId("campaign_cpm")
-            .setLabel("CPM")
-            .setPlaceholder("Example: $2.00")
-            .setStyle(TextInputStyle.Short)
-            .setMaxLength(30)
-            .setRequired(true);
+const campaignBriefInput =
+    new TextInputBuilder()
+        .setCustomId("campaign_brief")
+        .setLabel("Campaign Brief")
+        .setPlaceholder(
+            "Example: Open brief edits, sports highlights allowed."
+        )
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(2000);
 
-        const briefInput = new TextInputBuilder()
-    .setCustomId("campaign_brief")
-    .setLabel("Campaign brief")
-    .setPlaceholder(
-        "Explain exactly what creators should post..."
+const campaignDescriptionInput =
+    new TextInputBuilder()
+        .setCustomId("campaign_description")
+        .setLabel("Campaign Description")
+        .setPlaceholder(
+            "Example: Get paid to post Zemi - Mira edits on TikTok."
+        )
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(1000);
+
+modal.addComponents(
+    new ActionRowBuilder().addComponents(
+        campaignNameInput
+    ),
+    new ActionRowBuilder().addComponents(
+        campaignClientInput
+    ),
+    new ActionRowBuilder().addComponents(
+        campaignInfoInput
+    ),
+    new ActionRowBuilder().addComponents(
+        campaignBriefInput
+    ),
+    new ActionRowBuilder().addComponents(
+        campaignDescriptionInput
     )
-    .setStyle(TextInputStyle.Paragraph)
-    .setMaxLength(2000)
-    .setRequired(true);
+);
+        
+const audioFile =
+    interaction.options.getAttachment("audio_file");
 
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(nameInput),
-            new ActionRowBuilder().addComponents(clientInput),
-            new ActionRowBuilder().addComponents(budgetInput),
-            new ActionRowBuilder().addComponents(cpmInput),
-            new ActionRowBuilder().addComponents(briefInput)
-        );
+const audioLink =
+    interaction.options.getString("audio_link");
 
+const draftKey =
+    `${interaction.guild.id}:${interaction.user.id}`;
+
+client.campaignDrafts ??= new Map();
+
+client.campaignDrafts.set(draftKey, {
+    audioFile: audioFile
+        ? {
+              url: audioFile.url,
+              name: audioFile.name,
+              contentType: audioFile.contentType,
+              size: audioFile.size
+          }
+        : null,
+
+    audioLink: audioLink?.trim() || null
+});
+
+return interaction.showModal(modal);
         return interaction.showModal(modal);
     },
 
