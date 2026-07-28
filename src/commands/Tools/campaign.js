@@ -1297,47 +1297,7 @@ export default {
                 )
                 .setMaxLength(500)
                 .setRequired(true)
-        )
-
-        // OPTIONAL OPTIONS AFTER
-        .addStringOption(option =>
-            option
-                .setName("emoji")
-                .setDescription(
-                    "Campaign emoji, for example 🎬"
-                )
-                .setRequired(false)
-        )
-
-        .addStringOption(option =>
-            option
-                .setName("platform")
-                .setDescription(
-                    "Campaign platform"
-                )
-                .setRequired(false)
-                .addChoices(
-                    {
-                        name: "TikTok",
-                        value: "TikTok"
-                    },
-                    {
-                        name: "Multiple Platforms",
-                        value:
-                            "TikTok"
-                    }
-                )
-        )
-
-        .addStringOption(option =>
-            option
-                .setName("audio")
-                .setDescription(
-                    "Paste the audio, sound, Dropbox or Drive URL"
-                )
-                .setMaxLength(1000)
-                .setRequired(false)
-        )
+        )        
 ),
     
     async execute(interaction) {
@@ -1359,40 +1319,10 @@ export default {
             });
         }
 
-        const emoji =
-            interaction.options.getString("emoji") ||
-            "🎬";
+      const draftKey =
+    `${interaction.guild.id}:${interaction.user.id}`;
 
-        const platform =
-            interaction.options.getString("platform") ||
-            "TikTok";
-const deadline =
-    interaction.options.getString("deadline");
-
-const description =
-    interaction.options.getString("description");
-
-const audio =
-    interaction.options.getString("audio");
-        if (!interaction.client.campaignDrafts) {
-            interaction.client.campaignDrafts =
-                new Map();
-        }
-
-        const draftKey =
-            `${interaction.guild.id}:${interaction.user.id}`;
-
-       interaction.client.campaignDrafts.set(
-    draftKey,
-    {
-        emoji,
-        platform,
-        deadline,
-        description,
-        audio,
-        createdAt: Date.now()
-    }
-);
+interaction.client.campaignDrafts ??= new Map();
 
        const modal =
     new ModalBuilder()
@@ -1479,13 +1409,8 @@ const audioFile =
 
 const audioLink =
     interaction.options.getString("audio_link");
-
-const draftKey =
-    `${interaction.guild.id}:${interaction.user.id}`;
-
-client.campaignDrafts ??= new Map();
-
-client.campaignDrafts.set(draftKey, {
+interaction.client.campaignDrafts ??= new Map();
+interaction.client.campaignDrafts.set(draftKey, {
     audioFile: audioFile
         ? {
               url: audioFile.url,
@@ -1495,11 +1420,12 @@ client.campaignDrafts.set(draftKey, {
           }
         : null,
 
-    audioLink: audioLink?.trim() || null
+    audioLink: audioLink?.trim() || null,
+
+    createdAt: Date.now()
 });
 
 return interaction.showModal(modal);
-        return interaction.showModal(modal);
     },
 
     async button(interaction) {
