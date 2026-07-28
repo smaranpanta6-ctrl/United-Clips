@@ -66,7 +66,10 @@ function buildCampaignContent(campaign) {
         "",
         `• ${campaign.brief}`,
         "",
-        "## 👇 JOIN BELOW TO START EARNING NOW!"
+        "## 👇 JOIN BELOW TO START EARNING NOW!",
+"",
+"### 🚨 WANT PRIVATE ALERTS FOR EVERY NEW CAMPAIGN?",
+"Press **TURN ON CAMPAIGN ALERTS** below."
     ];
 
     if (campaign.audioLink) {
