@@ -22,6 +22,12 @@ import {
     getCampaign
 } from "../../utils/database.js";
 
+import {
+    subscribeToCampaignDMs,
+    unsubscribeFromCampaignDMs,
+    isSubscribedToCampaignDMs
+} from "../../utils/campaignNotifications.js";
+
 console.log("🔥 CAMPAIGN COMMAND LOADED 🔥");
 
 const STAFF_ROLE_ID = "1529961495402778771";
@@ -118,27 +124,42 @@ function buildCampaignEmbed(campaign) {
 }
 
 function buildCampaignButtons(campaign) {
-    const isClosed = campaign.status !== "Active";
+    const isClosed =
+        campaign.status !== "Active";
 
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`campaign_join_${campaign.id}`)
+            .setCustomId(
+                `campaign_join_${campaign.id}`
+            )
             .setLabel("Join Campaign")
             .setEmoji("🚀")
             .setStyle(ButtonStyle.Success)
             .setDisabled(isClosed),
 
         new ButtonBuilder()
-            .setCustomId(`campaign_status_${campaign.id}`)
+            .setCustomId(
+                `campaign_status_${campaign.id}`
+            )
             .setLabel("View Live Details")
             .setEmoji("📊")
             .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
-            .setCustomId(`campaign_leave_${campaign.id}`)
+            .setCustomId(
+                `campaign_leave_${campaign.id}`
+            )
             .setLabel("Leave Campaign")
             .setEmoji("↩️")
-            .setStyle(ButtonStyle.Danger)
+            .setStyle(ButtonStyle.Danger),
+
+        new ButtonBuilder()
+            .setCustomId(
+                `campaign_notify_${campaign.id}`
+            )
+            .setLabel("Enable Campaign DMs")
+            .setEmoji("🔔")
+            .setStyle(ButtonStyle.Secondary)
     );
 }
 
@@ -858,7 +879,75 @@ function findFirstWorkspaceChannel(
 
     return null;
 }
+async function handleNotificationToggle(
+    interaction,
+    campaign
+) {
+    const currentlySubscribed =
+        await isSubscribedToCampaignDMs(
+            interaction.client,
+            interaction.guild.id,
+            interaction.user.id
+        );
 
+    if (currentlySubscribed) {
+        await unsubscribeFromCampaignDMs(
+            interaction.client,
+            interaction.guild.id,
+            interaction.user.id
+        );
+
+        return interaction.reply({
+            content: [
+                "🔕 **Campaign DMs disabled.**",
+                "",
+                "You will no longer receive private messages when new campaigns are created.",
+                "",
+                "Press the button again anytime to turn them back on."
+            ].join("\n"),
+            ephemeral: true
+        });
+    }
+
+    await subscribeToCampaignDMs(
+        interaction.client,
+        interaction.guild.id,
+        interaction.user.id
+    );
+
+    let dmWorked = true;
+
+    await interaction.user.send({
+        content: [
+            "## 🔔 United Clips Campaign DMs Enabled",
+            "",
+            `You will now receive a private message whenever a new campaign is created in **${interaction.guild.name}**.`,
+            "",
+            "You can disable notifications by pressing the notification button again."
+        ].join("\n")
+    }).catch(() => {
+        dmWorked = false;
+    });
+
+    return interaction.reply({
+        content: dmWorked
+            ? [
+                  "✅ **Campaign DMs enabled.**",
+                  "",
+                  "You will now receive a private message whenever a new campaign is created.",
+                  "",
+                  "I sent you a confirmation DM."
+              ].join("\n")
+            : [
+                  "✅ **Campaign notifications enabled.**",
+                  "",
+                  "However, Discord blocked my confirmation DM.",
+                  "",
+                  "Enable **Direct Messages** for this server so future campaign notifications can reach you."
+              ].join("\n"),
+        ephemeral: true
+    });
+}
 async function handleJoin(interaction, campaign) {
     if (campaign.status !== "Active") {
         return interaction.reply({
@@ -1757,6 +1846,12 @@ if (action === "status") {
     );
 }
 
+        if (action === "notify") {
+    return handleNotificationToggle(
+        interaction,
+        campaign
+    );
+}
         if (action === "mystats") {
             return handleMyStats(
                 interaction,
