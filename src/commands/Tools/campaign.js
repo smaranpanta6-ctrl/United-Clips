@@ -20,7 +20,7 @@ import {
 console.log("🔥 CAMPAIGN COMMAND LOADED 🔥");
 
 const STAFF_ROLE_ID = "1529961495402778771";
-const ACTIVE_CATEGORY_ID = "1529961507062812752";
+const ACTIVE_CATEGORY_ID = "1531525611057582182";
 
 const CAMPAIGN_CHANNEL_NAMES = [
     "📢-announcements",
@@ -1256,55 +1256,39 @@ return interaction.editReply({
 }
 export default {
     data: new SlashCommandBuilder()
-    .setName("campaign")
-    .setDescription("Create and manage campaigns")
-    .setDMPermission(false)
-    .addSubcommand(subcommand =>
-    subcommand
-        .setName("create")
-        .setDescription("Create a new clipping campaign")
-
-        .addAttachmentOption(option =>
-            option
-                .setName("audio_file")
-                .setDescription("Upload the campaign audio file")
-                .setRequired(false)
-        )
-
-        .addStringOption(option =>
-            option
-                .setName("audio_link")
-                .setDescription("Paste the TikTok audio link")
-                .setRequired(false)
-        )
-)
-
-        // REQUIRED OPTIONS FIRST
-        .addStringOption(option =>
-            option
-                .setName("deadline")
+        .setName("campaign")
+        .setDescription("Create and manage campaigns")
+        .setDMPermission(false)
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName("create")
                 .setDescription(
-                    "Campaign deadline, for example August 20"
+                    "Create a new clipping campaign"
                 )
-                .setRequired(true)
-        )
+                .addAttachmentOption(option =>
+                    option
+                        .setName("audio_file")
+                        .setDescription(
+                            "Upload the campaign audio file"
+                        )
+                        .setRequired(false)
+                )
+                .addStringOption(option =>
+                    option
+                        .setName("audio_link")
+                        .setDescription(
+                            "Paste the TikTok audio link"
+                        )
+                        .setMaxLength(1000)
+                        .setRequired(false)
+                )
+        ),
 
-        .addStringOption(option =>
-            option
-                .setName("description")
-                .setDescription(
-                    "Short public campaign description"
-                )
-                .setMaxLength(500)
-                .setRequired(true)
-        )        
-),
-    
     async execute(interaction) {
-        if (
-            interaction.options.getSubcommand() !==
-            "create"
-        ) {
+        const subcommand =
+            interaction.options.getSubcommand();
+
+        if (subcommand !== "create") {
             return;
         }
 
@@ -1314,122 +1298,147 @@ export default {
             )
         ) {
             return interaction.reply({
-                content: "❌ Only staff can create campaigns.",
+                content:
+                    "❌ Only staff can create campaigns.",
                 ephemeral: true
             });
         }
 
-      const draftKey =
-    `${interaction.guild.id}:${interaction.user.id}`;
+        const audioFile =
+            interaction.options.getAttachment(
+                "audio_file"
+            );
 
-interaction.client.campaignDrafts ??= new Map();
+        const audioLink =
+            interaction.options.getString(
+                "audio_link"
+            );
 
-       const modal =
-    new ModalBuilder()
-        .setCustomId("campaign_create_modal")
-        .setTitle("Create Campaign");
+        const draftKey =
+            `${interaction.guild.id}:${interaction.user.id}`;
 
-const campaignNameInput =
-    new TextInputBuilder()
-        .setCustomId("campaign_name")
-        .setLabel("Campaign Name")
-        .setPlaceholder("Example: Zemi - Mira")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMaxLength(100);
+        interaction.client.campaignDrafts ??=
+            new Map();
 
-const campaignClientInput =
-    new TextInputBuilder()
-        .setCustomId("campaign_client")
-        .setLabel("Client")
-        .setPlaceholder("Example: Zemi")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMaxLength(100);
+        interaction.client.campaignDrafts.set(
+            draftKey,
+            {
+                audioFile: audioFile
+                    ? {
+                          url: audioFile.url,
+                          name: audioFile.name,
+                          contentType:
+                              audioFile.contentType,
+                          size: audioFile.size
+                      }
+                    : null,
 
-const campaignInfoInput =
-    new TextInputBuilder()
-        .setCustomId("campaign_info")
-        .setLabel("Campaign Information")
-        .setPlaceholder(
-            "💰 CPM (Pay Rate): $1 per 1,000 views\n" +
-            "🤑 Pot: $3,750\n" +
-            "⬇️ Min views per video: 1,000\n" +
-            "⬆️ Max pay-out per video: $800\n" +
-            "📆 End Date: August 9th 2026\n" +
-            "💵 Payment Method: PayPal\n" +
-            "📱 Platform: TikTok"
-        )
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true)
-        .setMaxLength(2000);
+                audioLink:
+                    audioLink?.trim() || null,
 
-const campaignBriefInput =
-    new TextInputBuilder()
-        .setCustomId("campaign_brief")
-        .setLabel("Campaign Brief")
-        .setPlaceholder(
-            "Example: Open brief edits, sports highlights allowed."
-        )
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true)
-        .setMaxLength(2000);
+                createdAt: Date.now()
+            }
+        );
 
-const campaignDescriptionInput =
-    new TextInputBuilder()
-        .setCustomId("campaign_description")
-        .setLabel("Campaign Description")
-        .setPlaceholder(
-            "Example: Get paid to post Zemi - Mira edits on TikTok."
-        )
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true)
-        .setMaxLength(1000);
+        const modal =
+            new ModalBuilder()
+                .setCustomId(
+                    "campaign_create_modal"
+                )
+                .setTitle("Create Campaign");
 
-modal.addComponents(
-    new ActionRowBuilder().addComponents(
-        campaignNameInput
-    ),
-    new ActionRowBuilder().addComponents(
-        campaignClientInput
-    ),
-    new ActionRowBuilder().addComponents(
-        campaignInfoInput
-    ),
-    new ActionRowBuilder().addComponents(
-        campaignBriefInput
-    ),
-    new ActionRowBuilder().addComponents(
-        campaignDescriptionInput
-    )
-);
-        
-const audioFile =
-    interaction.options.getAttachment("audio_file");
+        const campaignNameInput =
+            new TextInputBuilder()
+                .setCustomId("campaign_name")
+                .setLabel("Campaign Name")
+                .setPlaceholder(
+                    "Example: Zemi - Mira"
+                )
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setMaxLength(100);
 
-const audioLink =
-    interaction.options.getString("audio_link");
-interaction.client.campaignDrafts ??= new Map();
-interaction.client.campaignDrafts.set(draftKey, {
-    audioFile: audioFile
-        ? {
-              url: audioFile.url,
-              name: audioFile.name,
-              contentType: audioFile.contentType,
-              size: audioFile.size
-          }
-        : null,
+        const campaignClientInput =
+            new TextInputBuilder()
+                .setCustomId("campaign_client")
+                .setLabel("Client")
+                .setPlaceholder("Example: Zemi")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setMaxLength(100);
 
-    audioLink: audioLink?.trim() || null,
+        const campaignInfoInput =
+            new TextInputBuilder()
+                .setCustomId("campaign_info")
+                .setLabel("Campaign Information")
+                .setPlaceholder(
+                    "💰 CPM (Pay Rate): $1 per 1,000 views\n" +
+                    "🤑 Pot: $3,750\n" +
+                    "⬇️ Min views per video: 1,000\n" +
+                    "⬆️ Max payout per video: $800\n" +
+                    "📆 End Date: August 9, 2026\n" +
+                    "💵 Payment Method: PayPal\n" +
+                    "📱 Platform: TikTok"
+                )
+                .setStyle(
+                    TextInputStyle.Paragraph
+                )
+                .setRequired(true)
+                .setMaxLength(2000);
 
-    createdAt: Date.now()
-});
+        const campaignBriefInput =
+            new TextInputBuilder()
+                .setCustomId("campaign_brief")
+                .setLabel("Campaign Brief")
+                .setPlaceholder(
+                    "Example: Open brief edits, sports highlights allowed."
+                )
+                .setStyle(
+                    TextInputStyle.Paragraph
+                )
+                .setRequired(true)
+                .setMaxLength(2000);
 
-return interaction.showModal(modal);
+        const campaignDescriptionInput =
+            new TextInputBuilder()
+                .setCustomId(
+                    "campaign_description"
+                )
+                .setLabel(
+                    "Campaign Description"
+                )
+                .setPlaceholder(
+                    "Example: Get paid to post Zemi - Mira edits on TikTok."
+                )
+                .setStyle(
+                    TextInputStyle.Paragraph
+                )
+                .setRequired(true)
+                .setMaxLength(1000);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(
+                campaignNameInput
+            ),
+            new ActionRowBuilder().addComponents(
+                campaignClientInput
+            ),
+            new ActionRowBuilder().addComponents(
+                campaignInfoInput
+            ),
+            new ActionRowBuilder().addComponents(
+                campaignBriefInput
+            ),
+            new ActionRowBuilder().addComponents(
+                campaignDescriptionInput
+            )
+        );
+
+        return interaction.showModal(modal);
     },
 
     async button(interaction) {
-        const parts = interaction.customId.split("_");
+       const parts = interaction.customId.split("_");
 
         const prefix = parts[0];
         const action = parts[1];
