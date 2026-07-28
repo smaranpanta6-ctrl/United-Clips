@@ -13,7 +13,7 @@ import {
     createCampaignSpreadsheet,
     getGoogleErrorSummary
 } from "../../utils/googleSheets.js";
-const ACTIVE_CATEGORY_ID = "1529961507062812752";
+const ACTIVE_CATEGORY_ID = "1531525611057582182";
 
 function cleanChannelName(name) {
     return String(name)
