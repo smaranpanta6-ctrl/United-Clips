@@ -1367,8 +1367,8 @@ export default {
                 .setRequired(true)
                 .setMaxLength(100);
 
-        c.setPlaceholder(
-    "CPM: $1/1K\nPot: $3,750\nEnd Date: Aug 9\nPlatform: TikTok"
+       .setPlaceholder(
+    "Paste CPM, pot, minimum views, end date and platform"
 )
                 .setStyle(
                     TextInputStyle.Paragraph
@@ -1424,7 +1424,21 @@ export default {
             )
         );
 
-        return interaction.showModal(modal);
+       try {
+    return await interaction.showModal(modal);
+} catch (error) {
+    console.error("CAMPAIGN MODAL OPEN FAILED:");
+    console.error(error);
+    console.error(error?.stack);
+
+    if (!interaction.replied && !interaction.deferred) {
+        return interaction.reply({
+            content:
+                "❌ The campaign modal could not open. Check the Railway logs.",
+            ephemeral: true
+        });
+    }
+}
     },
 
     async button(interaction) {
