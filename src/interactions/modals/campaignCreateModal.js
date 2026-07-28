@@ -47,29 +47,7 @@ function formatCampaignInfo(value) {
         })
         .join("\n");
 }
-    const deadline = deadlineLine
-        ? deadlineLine
-              .replace(/^deadline\s*:/i, "")
-              .trim()
-        : lines[0] || "Not specified";
-
-    const descriptionLines = lines.filter(
-        line => line !== deadlineLine
-    );
-
-    const description =
-        descriptionLines
-            .join("\n")
-            .replace(/^instructions?\s*:/i, "")
-            .trim() ||
-        "Create and submit content for this campaign.";
-
-    return {
-        deadline,
-        description
-    };
-}
-
+    
 function buildCampaignContent(campaign) {
     const lines = [
         `## ${campaign.emoji || "💸"} Get Paid To Post ${campaign.name} Edits/Highlights!`,
@@ -189,10 +167,10 @@ const description =
 
             const campaignChannel =
                 await interaction.guild.channels.create({
-                    name: `${draft.emoji}-${cleanName}`.slice(
-                        0,
-                        100
-                    ),
+                    name: `💸-${cleanName}`.slice(
+    0,
+    100
+),
                     type: ChannelType.GuildText,
                     parent: activeCategory.id
                 });
