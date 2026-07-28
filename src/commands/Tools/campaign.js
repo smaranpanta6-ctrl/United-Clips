@@ -1367,19 +1367,9 @@ export default {
                 .setRequired(true)
                 .setMaxLength(100);
 
-        const campaignInfoInput =
-            new TextInputBuilder()
-                .setCustomId("campaign_info")
-                .setLabel("Campaign Information")
-                .setPlaceholder(
-                    "💰 CPM (Pay Rate): $1 per 1,000 views\n" +
-                    "🤑 Pot: $3,750\n" +
-                    "⬇️ Min views per video: 1,000\n" +
-                    "⬆️ Max payout per video: $800\n" +
-                    "📆 End Date: August 9, 2026\n" +
-                    "💵 Payment Method: PayPal\n" +
-                    "📱 Platform: TikTok"
-                )
+        c.setPlaceholder(
+    "CPM: $1/1K\nPot: $3,750\nEnd Date: Aug 9\nPlatform: TikTok"
+)
                 .setStyle(
                     TextInputStyle.Paragraph
                 )
