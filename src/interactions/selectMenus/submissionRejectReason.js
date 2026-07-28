@@ -1,11 +1,14 @@
 import {
     ActionRowBuilder,
+    MessageFlags,
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle
 } from "discord.js";
 
-import { finalizeSubmissionReview } from "../../services/submissionReviewService.js";
+import {
+    finalizeSubmissionReview
+} from "../../services/submissionReviewService.js";
 
 export default {
     name: "submission_reject_reason",
@@ -23,25 +26,33 @@ export default {
                 )
                 .setTitle("Reject Submission");
 
-            const reasonInput = new TextInputBuilder()
-                .setCustomId("rejection_reason")
-                .setLabel("Rejection reason")
-                .setStyle(TextInputStyle.Paragraph)
-                .setMaxLength(500)
-                .setRequired(true);
+            const reasonInput =
+                new TextInputBuilder()
+                    .setCustomId(
+                        "rejection_reason"
+                    )
+                    .setLabel(
+                        "Rejection reason"
+                    )
+                    .setStyle(
+                        TextInputStyle.Paragraph
+                    )
+                    .setMaxLength(500)
+                    .setRequired(true);
 
             modal.addComponents(
-                new ActionRowBuilder().addComponents(
-                    reasonInput
-                )
+                new ActionRowBuilder()
+                    .addComponents(reasonInput)
             );
 
             return interaction.showModal(modal);
         }
 
-        await interaction.deferUpdate();
+        await interaction.deferReply({
+            flags: MessageFlags.Ephemeral
+        });
 
-        await finalizeSubmissionReview({
+        return finalizeSubmissionReview({
             interaction,
             client,
             submissionId,
