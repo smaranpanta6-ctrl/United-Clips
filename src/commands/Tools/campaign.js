@@ -1348,83 +1348,75 @@ export default {
                 .setTitle("Create Campaign");
 
         const campaignNameInput =
-            new TextInputBuilder()
-                .setCustomId("campaign_name")
-                .setLabel("Campaign Name")
-                .setPlaceholder(
-                    "Example: Zemi - Mira"
-                )
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true)
-                .setMaxLength(100);
+    new TextInputBuilder()
+        .setCustomId("campaign_name")
+        .setLabel("Campaign Name")
+        .setPlaceholder("Example: Zemi - Mira")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(100);
 
-        const campaignClientInput =
-            new TextInputBuilder()
-                .setCustomId("campaign_client")
-                .setLabel("Client")
-                .setPlaceholder("Example: Zemi")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true)
-                .setMaxLength(100);
+const campaignClientInput =
+    new TextInputBuilder()
+        .setCustomId("campaign_client")
+        .setLabel("Client")
+        .setPlaceholder("Example: Zemi")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(100);
 
-       .setPlaceholder(
-    "Paste CPM, pot, minimum views, end date and platform"
-)
-                .setStyle(
-                    TextInputStyle.Paragraph
-                )
-                .setRequired(true)
-                .setMaxLength(2000);
+const campaignInfoInput =
+    new TextInputBuilder()
+        .setCustomId("campaign_info")
+        .setLabel("Campaign Information")
+        .setPlaceholder(
+            "Paste CPM, pot, minimum views, end date and platform"
+        )
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(2000);
 
-        const campaignBriefInput =
-            new TextInputBuilder()
-                .setCustomId("campaign_brief")
-                .setLabel("Campaign Brief")
-                .setPlaceholder(
-                    "Example: Open brief edits, sports highlights allowed."
-                )
-                .setStyle(
-                    TextInputStyle.Paragraph
-                )
-                .setRequired(true)
-                .setMaxLength(2000);
+const campaignBriefInput =
+    new TextInputBuilder()
+        .setCustomId("campaign_brief")
+        .setLabel("Campaign Brief")
+        .setPlaceholder(
+            "Example: Open brief edits, sports highlights allowed."
+        )
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(2000);
 
-        const campaignDescriptionInput =
-            new TextInputBuilder()
-                .setCustomId(
-                    "campaign_description"
-                )
-                .setLabel(
-                    "Campaign Description"
-                )
-                .setPlaceholder(
-                    "Example: Get paid to post Zemi - Mira edits on TikTok."
-                )
-                .setStyle(
-                    TextInputStyle.Paragraph
-                )
-                .setRequired(true)
-                .setMaxLength(1000);
+const campaignDescriptionInput =
+    new TextInputBuilder()
+        .setCustomId("campaign_description")
+        .setLabel("Campaign Description")
+        .setPlaceholder(
+            "Example: Get paid to post Zemi - Mira edits on TikTok."
+        )
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(1000);
 
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(
-                campaignNameInput
-            ),
-            new ActionRowBuilder().addComponents(
-                campaignClientInput
-            ),
-            new ActionRowBuilder().addComponents(
-                campaignInfoInput
-            ),
-            new ActionRowBuilder().addComponents(
-                campaignBriefInput
-            ),
-            new ActionRowBuilder().addComponents(
-                campaignDescriptionInput
-            )
-        );
+modal.addComponents(
+    new ActionRowBuilder().addComponents(
+        campaignNameInput
+    ),
+    new ActionRowBuilder().addComponents(
+        campaignClientInput
+    ),
+    new ActionRowBuilder().addComponents(
+        campaignInfoInput
+    ),
+    new ActionRowBuilder().addComponents(
+        campaignBriefInput
+    ),
+    new ActionRowBuilder().addComponents(
+        campaignDescriptionInput
+    )
+);
 
-       try {
+try {
     return await interaction.showModal(modal);
 } catch (error) {
     console.error("CAMPAIGN MODAL OPEN FAILED:");
