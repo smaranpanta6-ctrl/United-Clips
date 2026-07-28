@@ -338,68 +338,73 @@ function formatBriefForWorkspace(value) {
 }
 
 function buildAnnouncementMessage(campaign) {
-    const lines = [
-        `# 📢 ${campaign.name}`,
-        "",
-        campaign.description ||
-            `Welcome to the ${campaign.name} campaign.`,
-        "",
-        "## 📝 Campaign Info",
+    return [
+        `## 📝 Campaign ${campaign.name} Info:`,
         "",
         formatCampaignInfoForWorkspace(
             campaign.campaignInfo
         ),
         "",
-        "## 📄 Brief",
+        "**Brief:**",
         "",
-        formatBriefForWorkspace(campaign.brief)
-    ];
-
-    if (campaign.audioLink) {
-        lines.push(
-            "",
-            "## 🔊 Required Audio",
-            "",
-            campaign.audioLink
-        );
-    }
-
-    lines.push(
-        "",
-        "Read the rules before submitting your clips."
-    );
-
-    return lines.join("\n");
+        formatBriefForWorkspace(
+            campaign.brief
+        )
+    ].join("\n");
 }
 
 function buildRulesMessage(campaign) {
     const lines = [
-        "# ❌ Campaign Rules",
+        "# ❌ Rules:",
         "",
-        "• Follow the campaign brief exactly.",
-        "• Use the required audio when one is provided.",
-        "• The audio must be clearly audible.",
-        "• Do not submit stolen or reposted content.",
+        "• Must be audible at all times, including during the intro.",
+        "• Must have at least 7 seconds of the edit using only the required song.",
+        "• Content must be original and of appropriate quality.",
+        "• No controversial, hateful, illegal or offensive topics.",
+        "• The song must be clearly audible for at least 7 seconds.",
+        "• Do not talk badly about the artist or client.",
+        "• Do not portray the artist or client negatively.",
+        "• The sound must be used intentionally.",
+        "• Do not use only a few seconds of the sound in a long video.",
+        "• The video must use the actual required sound.",
+        "• Do not slow down, speed up or replace the required sound.",
+        "• Do not promote other artists unless the brief permits it.",
+        "• No engagement baiting submissions.",
+        "• No fake views, bots, paid engagement or manipulated traffic.",
+        "• No background-audio-only edits where the edit never appears.",
+        "• Do not submit stolen, copied or reposted content.",
+        "• Do not submit videos already commissioned by another clipping server.",
         "• Do not submit the same video more than once.",
-        "• Do not use fake views, bots or paid engagement.",
-        "• Do not use misleading captions or engagement bait.",
-        "• Do not post hateful, illegal or controversial content.",
-        "• Keep the video public until the campaign is paid.",
-        "• Staff may reject clips that do not meet campaign quality standards.",
+        "• The video must remain public until the campaign has paid.",
+        "• Staff may reject any submission that does not meet campaign quality standards.",
         "",
-        "## 📄 Campaign Brief",
+        "*Posts must stay up until the campaign has paid, or you may not receive payment.*",
         "",
-        formatBriefForWorkspace(campaign.brief)
+        "**Brief:**",
+        "",
+        formatBriefForWorkspace(
+            campaign.brief
+        )
     ];
 
     if (campaign.audioLink) {
         lines.push(
             "",
-            "## 🚨 Use This Sound When Posting",
+            "## 🚨 Use this sound when posting, or you may not get paid:",
             "",
-            "You may not get paid if the required sound is missing.",
+            "Use the required sound at 5% volume or higher. If the required sound is missing, muted or replaced, the submission may be rejected.",
             "",
+            "**SOUND LINK TO USE:**",
             campaign.audioLink
+        );
+    }
+
+    if (campaign.audioFile?.url) {
+        lines.push(
+            "",
+            "## 🔊 Audio Download",
+            "",
+            "*You may use any part, but make sure the required sound is attached when posting.*"
         );
     }
 
@@ -613,19 +618,6 @@ if (channelName === "🛡️-staff-review") {
     const announcementPayload = {
         content: buildAnnouncementMessage(campaign)
     };
-
-    if (campaign.audioFile?.url) {
-        announcementPayload.files = [
-            {
-                attachment:
-                    campaign.audioFile.url,
-                name:
-                    campaign.audioFile.name ||
-                    "campaign-audio.mp3"
-            }
-        ];
-    }
-
     const announcementMessage =
         await announcementsChannel.send(
             announcementPayload
@@ -643,7 +635,8 @@ if (channelName === "🛡️-staff-review") {
 }
     if (rulesChannel) {
     const rulesPayload = {
-        content: buildRulesMessage(campaign)
+        content:
+            buildRulesMessage(campaign)
     };
 
     if (campaign.audioFile?.url) {
@@ -651,6 +644,7 @@ if (channelName === "🛡️-staff-review") {
             {
                 attachment:
                     campaign.audioFile.url,
+
                 name:
                     campaign.audioFile.name ||
                     "campaign-audio.mp3"
