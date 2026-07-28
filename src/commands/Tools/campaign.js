@@ -1146,62 +1146,118 @@ async function handleMyStats(interaction, campaign) {
         });
     }
 
-    const submitted = Array.isArray(member.clips)
-        ? member.clips.length
-        : 0;
+    const pool =
+    interaction.client?.db?.db?.pool ||
+    interaction.client?.db?.pool ||
+    interaction.client?.pool;
 
-    const approvedViews = Number(
-        member.approvedViews || 0
-    );
-
-    const payout = Number(member.payout || 0);
-    const approved = Number(member.approvedClips || 0);
-    const pending = Number(member.pendingClips || 0);
-    const rejected = Number(member.rejectedClips || 0);
-
-    const embed = new EmbedBuilder()
-        .setColor("#5865F2")
-        .setTitle(`📊 My Stats — ${campaign.name}`)
-        .addFields(
-            {
-                name: "📤 Submitted Clips",
-                value: String(submitted),
-                inline: true
-            },
-            {
-                name: "✅ Approved",
-                value: String(approved),
-                inline: true
-            },
-            {
-                name: "⏳ Pending",
-                value: String(pending),
-                inline: true
-            },
-            {
-                name: "❌ Rejected",
-                value: String(rejected),
-                inline: true
-            },
-            {
-                name: "👀 Approved Views",
-                value: approvedViews.toLocaleString("en-US"),
-                inline: true
-            },
-            {
-                name: "💵 Earnings",
-                value: `$${payout.toFixed(2)}`,
-                inline: true
-            }
-        )
-        .setFooter({
-            text: "Your personal campaign statistics"
-        })
-        .setTimestamp();
-
+if (!pool || typeof pool.query !== "function") {
     return interaction.editReply({
-        embeds: [embed]
+        content:
+            "❌ The submission database is unavailable."
     });
+}
+
+const statsResult = await pool.query(
+    `
+    SELECT
+        COUNT(*)::int AS submitted,
+        COUNT(*) FILTER (
+            WHERE status = 'approved'
+        )::int AS approved,
+        COUNT(*) FILTER (
+            WHERE status = 'pending'
+        )::int AS pending,
+        COUNT(*) FILTER (
+            WHERE status = 'rejected'
+        )::int AS rejected
+    FROM campaign_submissions
+    WHERE guild_id = $1
+      AND campaign_id = $2
+      AND user_id = $3
+    `,
+    [
+        interaction.guild.id,
+        String(campaign.id),
+        interaction.user.id
+    ]
+);
+
+const stats = statsResult.rows[0] || {};
+
+const submitted = Number(
+    stats.submitted || 0
+);
+
+const approved = Number(
+    stats.approved || 0
+);
+
+const pending = Number(
+    stats.pending || 0
+);
+
+const rejected = Number(
+    stats.rejected || 0
+);
+
+const approvedViews = Number(
+    member.approvedViews || 0
+);
+
+const payout = Number(
+    member.payout || 0
+);
+
+const embed = new EmbedBuilder()
+    .setColor("#5865F2")
+    .setTitle(
+        `📊 My Stats — ${campaign.name}`
+    )
+    .addFields(
+        {
+            name: "📤 Submitted Clips",
+            value: String(submitted),
+            inline: true
+        },
+        {
+            name: "✅ Approved",
+            value: String(approved),
+            inline: true
+        },
+        {
+            name: "⏳ Pending",
+            value: String(pending),
+            inline: true
+        },
+        {
+            name: "❌ Rejected",
+            value: String(rejected),
+            inline: true
+        },
+        {
+            name: "👀 Approved Views",
+            value:
+                approvedViews.toLocaleString(
+                    "en-US"
+                ),
+            inline: true
+        },
+        {
+            name: "💵 Earnings",
+            value: `$${payout.toFixed(2)}`,
+            inline: true
+        }
+    )
+    .setFooter({
+        text:
+            "Your personal campaign statistics"
+    })
+    .setTimestamp();
+
+return interaction.editReply({
+    embeds: [embed]
+});
 }
 export default {
     data: new SlashCommandBuilder()
