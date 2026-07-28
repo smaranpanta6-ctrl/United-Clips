@@ -366,47 +366,96 @@ for (
         );
 
     if (!created) {
-        const isStaffReview =
-            channelName === "🛡️-staff-review";
+       const isChat =
+    channelName === "💬-chat";
 
-        const channelPermissions =
-            isStaffReview
-                ? [
-                      {
-                          id:
-                              interaction.guild.roles
-                                  .everyone.id,
-                          deny: [
-                              PermissionFlagsBits.ViewChannel
-                          ]
-                      },
-                      {
-                          id: STAFF_ROLE_ID,
-                          allow: [
-                              PermissionFlagsBits.ViewChannel,
-                              PermissionFlagsBits.SendMessages,
-                              PermissionFlagsBits.ReadMessageHistory,
-                              PermissionFlagsBits.ManageMessages
-                          ]
-                      },
-                      {
-                          id: interaction.client.user.id,
-                          allow: [
-                              PermissionFlagsBits.ViewChannel,
-                              PermissionFlagsBits.SendMessages,
-                              PermissionFlagsBits.ReadMessageHistory,
-                              PermissionFlagsBits.ManageMessages,
-                              PermissionFlagsBits.EmbedLinks
-                          ]
-                      },
-                      {
-                          id: role.id,
-                          deny: [
-                              PermissionFlagsBits.ViewChannel
-                          ]
-                      }
+const isStaffReview =
+    channelName === "🛡️-staff-review";
+
+const channelPermissions =
+    isStaffReview
+        ? [
+              {
+                  id: interaction.guild.roles.everyone.id,
+                  deny: [
+                      PermissionFlagsBits.ViewChannel
                   ]
-                : permissionOverwrites;
+              },
+              {
+                  id: STAFF_ROLE_ID,
+                  allow: [
+                      PermissionFlagsBits.ViewChannel,
+                      PermissionFlagsBits.SendMessages,
+                      PermissionFlagsBits.ReadMessageHistory,
+                      PermissionFlagsBits.ManageMessages
+                  ]
+              },
+              {
+                  id: interaction.client.user.id,
+                  allow: [
+                      PermissionFlagsBits.ViewChannel,
+                      PermissionFlagsBits.SendMessages,
+                      PermissionFlagsBits.ReadMessageHistory,
+                      PermissionFlagsBits.ManageMessages,
+                      PermissionFlagsBits.EmbedLinks,
+                      PermissionFlagsBits.AttachFiles
+                  ]
+              },
+              {
+                  id: role.id,
+                  deny: [
+                      PermissionFlagsBits.ViewChannel
+                  ]
+              }
+          ]
+        : [
+              {
+                  id: interaction.guild.roles.everyone.id,
+                  deny: [
+                      PermissionFlagsBits.ViewChannel
+                  ]
+              },
+              {
+                  id: STAFF_ROLE_ID,
+                  allow: [
+                      PermissionFlagsBits.ViewChannel,
+                      PermissionFlagsBits.SendMessages,
+                      PermissionFlagsBits.ReadMessageHistory,
+                      PermissionFlagsBits.ManageMessages
+                  ]
+              },
+              {
+                  id: interaction.client.user.id,
+                  allow: [
+                      PermissionFlagsBits.ViewChannel,
+                      PermissionFlagsBits.SendMessages,
+                      PermissionFlagsBits.ReadMessageHistory,
+                      PermissionFlagsBits.EmbedLinks,
+                      PermissionFlagsBits.AttachFiles
+                  ]
+              },
+              {
+                  id: role.id,
+                  allow: isChat
+                      ? [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory
+                        ]
+                      : [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.ReadMessageHistory
+                        ],
+                  deny: isChat
+                      ? []
+                      : [
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.CreatePublicThreads,
+                            PermissionFlagsBits.CreatePrivateThreads,
+                            PermissionFlagsBits.SendMessagesInThreads
+                        ]
+              }
+          ];
 
         created =
             await interaction.guild.channels.create({
