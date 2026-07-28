@@ -25,19 +25,28 @@ function cleanChannelName(name) {
         .replace(/^-+|-+$/g, "")
         .slice(0, 80);
 }
-
-function splitDetails(value) {
-    const text = String(value || "").trim();
-
-    const lines = text
+function formatCampaignInfo(value) {
+    return String(value || "")
         .split("\n")
         .map(line => line.trim())
-        .filter(Boolean);
+        .filter(Boolean)
+        .map(line => {
+            const separatorIndex = line.indexOf(":");
 
-    const deadlineLine = lines.find(line =>
-        /^deadline\s*:/i.test(line)
-    );
+            if (separatorIndex === -1) {
+                return `• ${line}`;
+            }
 
+            const label =
+                line.slice(0, separatorIndex).trim();
+
+            const content =
+                line.slice(separatorIndex + 1).trim();
+
+            return `• **${label}:** ${content}`;
+        })
+        .join("\n");
+}
     const deadline = deadlineLine
         ? deadlineLine
               .replace(/^deadline\s*:/i, "")
@@ -63,33 +72,30 @@ function splitDetails(value) {
 
 function buildCampaignContent(campaign) {
     const lines = [
-        `## ${campaign.emoji || "🎬"} Get Paid To Post ${campaign.name} Edits`,
+        `## ${campaign.emoji || "💸"} Get Paid To Post ${campaign.name} Edits/Highlights!`,
+        "",
+        "Click **Join Campaign** and follow the campaign details to begin earning!",
         "",
         campaign.description,
         "",
-        "### 📝 Campaign Information",
-        `• **Client:** ${campaign.client}`,
-        `• **CPM:** ${campaign.cpm} per 1,000 views`,
-        `• **Budget:** ${campaign.budget}`,
-        `• **Deadline:** ${campaign.deadline}`,
-        `• **Platform:** ${campaign.platform}`,
+        "### 📝 Campaign Info",
         "",
-        "### 📋 Brief",
-        campaign.brief
+        formatCampaignInfo(campaign.campaignInfo),
+        "",
+        "### Brief",
+        "",
+        `• ${campaign.brief}`,
+        "",
+        "## 👇 JOIN BELOW TO START EARNING NOW!"
     ];
 
-    if (campaign.audio) {
+    if (campaign.audioLink) {
         lines.push(
             "",
-            "### 🔊 Audio",
-            campaign.audio
+            "### 🔊 TikTok Audio Link",
+            campaign.audioLink
         );
     }
-
-    lines.push(
-        "",
-        "## 👇 Join below to start earning"
-    );
 
     return lines.join("\n");
 }
@@ -128,12 +134,12 @@ export default {
                 `${interaction.guild.id}:${interaction.user.id}`;
 
             const draft =
-                client.campaignDrafts?.get(draftKey) || {
-                    emoji: "🎬",
-                    platform: "TikTok"
-                };
+    client.campaignDrafts?.get(draftKey) || {
+        audioFile: null,
+        audioLink: null
+    };
 
-            client.campaignDrafts?.delete(draftKey);
+client.campaignDrafts?.delete(draftKey);
 
             const activeCategory =
                 await interaction.guild.channels.fetch(
@@ -161,24 +167,20 @@ export default {
                     .getTextInputValue("campaign_client")
                     .trim();
 
-            const budget =
-                interaction.fields
-                    .getTextInputValue("campaign_budget")
-                    .trim();
+           const campaignInfo =
+    interaction.fields
+        .getTextInputValue("campaign_info")
+        .trim();
 
-            const cpm =
-                interaction.fields
-                    .getTextInputValue("campaign_cpm")
-                    .trim();
+const brief =
+    interaction.fields
+        .getTextInputValue("campaign_brief")
+        .trim();
 
-          const brief =
-    interaction.fields.getTextInputValue(
-        "campaign_brief"
-    );
-
-            const deadline = draft.deadline;
-const description = draft.description;
-
+const description =
+    interaction.fields
+        .getTextInputValue("campaign_description")
+        .trim();
             const id = Date.now().toString();
 
             const cleanName =
@@ -195,19 +197,18 @@ const description = draft.description;
                     parent: activeCategory.id
                 });
 
-          const campaign = {
+         const campaign = {
     id,
     name,
     client: campaignClient,
-    budget,
-    cpm,
 
-    emoji: draft.emoji || "🎬",
-    platform: draft.platform || "TikTok",
-    deadline,
+    emoji: "💸",
+    campaignInfo,
     description,
     brief,
-    audio: draft.audio || null,
+
+    audioLink: draft.audioLink || null,
+    audioFile: draft.audioFile || null,
 
     channel: campaignChannel.id,
     category: null,
@@ -228,13 +229,26 @@ const description = draft.description;
             
 // Post the public campaign immediately.
 // Google Sheets must not delay or prevent this message.
-const publicMessage = await campaignChannel.send({
+const messagePayload = {
     content: buildCampaignContent(campaign),
     components: [
         buildCampaignButtons(campaign)
     ]
-});
+};
 
+if (campaign.audioFile?.url) {
+    messagePayload.files = [
+        {
+            attachment: campaign.audioFile.url,
+            name:
+                campaign.audioFile.name ||
+                "campaign-audio.mp3"
+        }
+    ];
+}
+
+const publicMessage =
+    await campaignChannel.send(messagePayload);
 campaign.publicMessageId = publicMessage.id;
 
 // Save the campaign immediately after creating the Discord post.
