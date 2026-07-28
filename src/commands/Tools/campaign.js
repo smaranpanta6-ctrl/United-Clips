@@ -819,21 +819,32 @@ async function handleJoin(interaction, campaign) {
             components
         });
     } catch (error) {
-       console.error("========== JOIN ERROR ==========");
-console.error(error);
-console.error(error?.stack);
-console.error(JSON.stringify(error, null, 2));
-console.error("Campaign:", campaign);
-console.error("===============================");
+    console.error("========== CAMPAIGN JOIN ERROR ==========");
+    console.error(error);
+    console.error(error?.stack);
+    console.error("Campaign ID:", campaign?.id);
+    console.error("Campaign name:", campaign?.name);
+    console.error("Campaign role:", campaign?.role);
+    console.error("Campaign category:", campaign?.category);
+    console.error("=========================================");
 
-        return interaction.editReply({
-            content: [
-                "❌ I could not add you to this campaign.",
-                "",
-                "Check that the bot has **Manage Roles** and **Manage Channels**, and that its role is above the campaign role."
-            ].join("\n")
-        });
-    }
+    const errorMessage =
+        error?.rawError?.message ||
+        error?.message ||
+        String(error);
+
+    return interaction.editReply({
+        content: [
+            "❌ **Campaign join failed.**",
+            "",
+            "```",
+            errorMessage.slice(0, 1500),
+            "```",
+            "",
+            "Send me a screenshot of this exact error."
+        ].join("\n")
+    });
+}
 }
 
 async function handleLeave(interaction, campaign) {
