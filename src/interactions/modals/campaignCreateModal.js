@@ -82,21 +82,35 @@ function buildCampaignContent(campaign) {
 function buildCampaignButtons(campaign) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`campaign_join_${campaign.id}`)
+            .setCustomId(
+                `campaign_join_${campaign.id}`
+            )
             .setLabel("Join Campaign")
             .setEmoji("🚀")
             .setStyle(ButtonStyle.Success),
 
         new ButtonBuilder()
-            .setCustomId(`campaign_status_${campaign.id}`)
+            .setCustomId(
+                `campaign_status_${campaign.id}`
+            )
             .setLabel("View Live Details")
             .setEmoji("📊")
             .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
-            .setCustomId(`campaign_leave_${campaign.id}`)
+            .setCustomId(
+                `campaign_leave_${campaign.id}`
+            )
             .setLabel("Leave Campaign")
             .setEmoji("↩️")
+            .setStyle(ButtonStyle.Danger),
+
+        new ButtonBuilder()
+            .setCustomId(
+                `campaign_notify_${campaign.id}`
+            )
+            .setLabel("TURN ON CAMPAIGN ALERTS")
+            .setEmoji("🚨")
             .setStyle(ButtonStyle.Danger)
     );
 }
