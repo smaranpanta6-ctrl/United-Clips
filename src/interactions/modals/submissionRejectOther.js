@@ -16,14 +16,14 @@ export default {
             flags: MessageFlags.Ephemeral
         });
 
-        await finalizeSubmissionReview({
-            interaction,
-            client,
-            submissionId,
-            status: "rejected",
-            rejectionReason: reason,
-            reviewChannelId,
-            reviewMessageId
-        });
+        return finalizeSubmissionReview({
+    interaction,
+    client,
+    submissionId,
+    status: "rejected",
+    rejectionReason: reason,
+    reviewChannelId,
+    reviewMessageId
+});
     }
 };
