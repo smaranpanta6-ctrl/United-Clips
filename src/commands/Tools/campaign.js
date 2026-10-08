@@ -12,14 +12,15 @@ import {
 } from "discord.js";
 
 import {
-    saveMember,
+    joinMember,
     getMember,
-    deleteMember
+    leaveMember
 } from "../../utils/campaignMembers.js";
 
 import {
     saveCampaign,
-    getCampaign
+    getCampaign,
+    getAllCampaigns
 } from "../../utils/database.js";
 
 import {
@@ -27,11 +28,15 @@ import {
     unsubscribeFromCampaignDMs,
     isSubscribedToCampaignDMs
 } from "../../utils/campaignNotifications.js";
+import { campaignBelongsToGuild } from '../../utils/campaignAccess.js';
+import { getSubmissionStats, getSubmission, listUserSubmissions } from '../../services/submissionService.js';
+import { withCampaignLock } from '../../utils/campaignLock.js';
+import { sendDiscordText } from '../../utils/discordMessages.js';
 
 console.log("🔥 CAMPAIGN COMMAND LOADED 🔥");
 
-const STAFF_ROLE_ID = "1529961495402778771";
-const ACTIVE_CATEGORY_ID = "1531525611057582182";
+const STAFF_ROLE_ID = process.env.STAFF_ROLE_ID || "1529961495402778771";
+const ACTIVE_CATEGORY_ID = process.env.ACTIVE_CATEGORY_ID || "1531525611057582182";
 
 const CAMPAIGN_CHANNEL_NAMES = [
     "📢-announcements",
@@ -40,6 +45,139 @@ const CAMPAIGN_CHANNEL_NAMES = [
     "⚠️-rules",
     "🛡️-staff-review"
 ];
+
+async function browseCampaigns(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const campaigns = await getAllCampaigns(interaction.client);
+    const available = [];
+    for (const campaign of campaigns) {
+        if (campaign.status === 'Active' && await campaignBelongsToGuild(interaction, campaign)) available.push(campaign);
+    }
+    return interaction.editReply({ embeds: [new EmbedBuilder().setColor('#5865F2').setTitle('Active Campaigns')
+        .setDescription(available.length
+            ? available.slice(0, 20).map(campaign => `[${String(campaign.name || 'Campaign').replace(/[\[\]]/g, '')}](https://discord.com/channels/${interaction.guild.id}/${campaign.channel})`).join('\n')
+            : 'No active campaigns are available yet. Watch announcements for the next campaign.')
+        .setFooter({ text: `${available.length} active campaigns • Read the full brief before joining` })] });
+}
+
+async function showMySubmissions(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const submissions = await listUserSubmissions(interaction.client, interaction.guild.id, interaction.user.id);
+    const embed = new EmbedBuilder().setColor('#5865F2').setTitle('My Submissions')
+        .setDescription(submissions.length ? 'Your latest 10 submissions. Staff decisions appear here as they are recorded.' : 'No clips submitted yet. Browse campaigns and use Submit Clip in a joined campaign workspace.');
+    for (const submission of submissions) {
+        const campaign = await getCampaign(interaction.client, submission.campaign_id);
+        embed.addFields({ name: `#${submission.id} • ${campaign?.name || 'Campaign'} • ${submission.status}`.slice(0, 256),
+            value: `[Open ${submission.platform} video](${submission.video_url})${submission.rejection_reason ? `\nReason: ${submission.rejection_reason.slice(0, 80)}` : ''}` });
+    }
+    return interaction.editReply({ embeds: [embed] });
+}
+
+async function publishCreatorPanel(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const rows = [new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('campaign_browse_all').setLabel('Browse Campaigns').setEmoji('🎬').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('campaign_submissions_all').setLabel('My Submissions').setEmoji('📋').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('payment_balance').setLabel('My Earnings').setEmoji('💰').setStyle(ButtonStyle.Secondary))];
+    if (interaction.guild.id === '1529960735390826536') rows.push(new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel('Verify Account').setStyle(ButtonStyle.Link).setURL('https://discord.com/channels/1529960735390826536/1529961561324519514'),
+        new ButtonBuilder().setLabel('Choose Niches').setStyle(ButtonStyle.Link).setURL('https://discord.com/channels/1529960735390826536/1529961568278941857'),
+        new ButtonBuilder().setLabel('Payout Settings').setStyle(ButtonStyle.Link).setURL('https://discord.com/channels/1529960735390826536/1529961578286284992'),
+        new ButtonBuilder().setLabel('Get Support').setStyle(ButtonStyle.Link).setURL('https://discord.com/channels/1529960735390826536/1529961601124401295')));
+    const message = await interaction.channel.send({
+        embeds: [new EmbedBuilder().setColor('#5865F2').setTitle('United Clips • Creator Hub')
+            .setDescription('**Create. Submit. Track.**\n\n1. Verify your account, choose your niches, and set up your payout details.\n2. Browse active campaigns and read the full brief.\n3. Join a campaign to unlock its workspace and submit your video.\n4. Check your submissions and recorded earnings privately below.\n\nCampaign terms and staff review determine eligibility. Approved clips do not automatically trigger a payment.')
+            .setFooter({ text: 'United Clips • Private replies for your submissions and earnings' })],
+        components: rows, allowedMentions: { parse: [] }
+    });
+    await message.pin().catch(() => null);
+    return interaction.editReply({ content: 'Creator Hub published and pinned in this channel.' });
+}
+
+async function organizeUnitedClips(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    if (interaction.guild.id !== '1529960735390826536') {
+        return interaction.editReply({ content: 'This layout is configured for United Clips.' });
+    }
+    const channels = await interaction.guild.channels.fetch();
+    const staff = channels.get('1529961602101543034');
+    const renames = [
+        ['1529961561324519514', '1️⃣・verify-account', 'Verify your TikTok ownership using the bot. Never post verification codes or passwords publicly.'],
+        ['1529961568278941857', '2️⃣・choose-niches', 'Choose the campaign categories you want to hear about. Update your selections any time.'],
+        ['1529961578286284992', '3️⃣・payout-settings', 'Manage your payout account and view recorded earnings privately through the bot buttons.'],
+        ['1529961538709098616', '🚀・start-here', 'Start here: verify your account, choose niches, set up payouts, and read each campaign brief before joining.'],
+        ['1529961601124401295', '🎫・support', 'Open a private ticket for verification, submissions, or payout questions. Include your campaign and submission ID when relevant.'],
+        ['1529961616114978987', '📋・bot-logs', 'Private bot activity and troubleshooting logs for the campaign team.'],
+        ['1529961607969378395', '📥・submission-review', 'Private staff space for submission review and recovery.'],
+        ['1529961658598817864', '🛠️・campaign-admin', 'Private campaign operations. Use /campaign create to publish a brief and /campaign review to recover a submission panel.'],
+        [ACTIVE_CATEGORY_ID, '💸 Active Campaigns', null]
+    ];
+    const failures = [];
+    let changed = 0;
+    for (const [id, name, topic] of renames) {
+        const channel = channels.get(id);
+        if (!channel) continue;
+        try {
+            if (channel.name !== name || (topic && channel.topic !== topic)) {
+                await channel.edit({ name, ...(topic ? { topic } : {}), reason: 'United Clips channel organization' });
+                changed++;
+            }
+        } catch { failures.push(channel.name); }
+    }
+    const categoryNames = new Map([
+        ['👋 Welcome', '👋 Start Here'], ['🎫 TICKETS', '🎫 Help & Support'], ['🛠️ STAFF', '🛡️ Campaign Team']
+    ]);
+    for (const channel of channels.values()) {
+        if (channel?.type !== ChannelType.GuildCategory || !categoryNames.has(channel.name)) continue;
+        try { await channel.setName(categoryNames.get(channel.name), 'United Clips channel organization'); changed++; }
+        catch { failures.push(channel.name); }
+    }
+    // Preserve every channel ID, message, and explicit permission overwrite.
+    // These legacy channels were left outside all categories by the old setup.
+    const legacyIds = ['1531274807096770687', '1529961625032069120', '1529961626365857822',
+        '1529961632237748325', '1529961633365884979', '1529961639565197503',
+        '1529961641524068473', '1529961644908871781', '1529961655386247209',
+        '1529961656434823218', '1529961658598817864', '1529961657546182726'];
+    if (staff?.parentId) {
+        for (const id of legacyIds) {
+            const channel = channels.get(id);
+            if (!channel || channel.parentId) continue;
+            try {
+                await channel.setParent(staff.parentId, { lockPermissions: false, reason: 'Organize legacy workspaces without changing access' });
+                changed++;
+            } catch { failures.push(channel.name); }
+        }
+    }
+    return interaction.editReply({ content: `Organized ${changed} channels and categories. Existing messages, roles, and access settings are preserved.${failures.length ? `\nCould not update: ${failures.join(', ')}` : ''}` });
+}
+
+async function recoverSubmissionPanel(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const id = interaction.options.getInteger('submission', true);
+    const submission = await getSubmission(interaction.client, id, interaction.guild.id);
+    if (!submission) return interaction.editReply({ content: `Submission #${id} was not found in this server.` });
+    const campaign = await getCampaign(interaction.client, submission.campaign_id);
+    const channel = campaign?.staffReviewChannel
+        ? await interaction.guild.channels.fetch(campaign.staffReviewChannel).catch(() => null) : null;
+    if (!channel?.isTextBased() || channel.permissionsFor(interaction.guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel)) {
+        return interaction.editReply({ content: 'Set up a private staff review channel for this campaign before recovering its panel.' });
+    }
+    await channel.send({
+        embeds: [new EmbedBuilder().setTitle(`Clip Submission #${submission.id}`).setColor('#5865F2')
+            .addFields(
+                { name: 'Campaign', value: campaign.name },
+                { name: 'Creator', value: `<@${submission.user_id}>`, inline: true },
+                { name: 'Status', value: submission.status, inline: true },
+                { name: 'Platform', value: submission.platform, inline: true },
+                { name: 'Video', value: submission.video_url },
+                { name: 'Notes', value: submission.notes || 'No notes provided.' })],
+        components: [new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`submission_approve_${submission.id}`).setLabel('Approve').setStyle(ButtonStyle.Success).setDisabled(submission.status === 'approved'),
+            new ButtonBuilder().setCustomId(`submission_reject_${submission.id}`).setLabel('Reject').setStyle(ButtonStyle.Danger).setDisabled(submission.status === 'rejected'))],
+        allowedMentions: { parse: [] }
+    });
+    return interaction.editReply({ content: `Recovered submission #${id} in <#${channel.id}>.` });
+}
 
 function memberCount(campaign) {
     return Array.isArray(campaign.members)
@@ -78,7 +216,7 @@ function buildCampaignEmbed(campaign) {
                 "### 🚀 Join Campaign",
                 "Unlock the private campaign workspace.",
                 "",
-                "### 📊 View Live Details",
+                "### 📊 Campaign Details",
                 "Check current members, submissions, views, budget, and payouts.",
                 "",
                 "### ↩️ Leave Campaign",
@@ -141,7 +279,7 @@ function buildCampaignButtons(campaign) {
             .setCustomId(
                 `campaign_status_${campaign.id}`
             )
-            .setLabel("View Live Details")
+            .setLabel("Campaign Details")
             .setEmoji("📊")
             .setStyle(ButtonStyle.Primary),
 
@@ -640,7 +778,7 @@ if (channelName === "🛡️-staff-review") {
         content: buildAnnouncementMessage(campaign)
     };
     const announcementMessage =
-        await announcementsChannel.send(
+        await sendDiscordText(announcementsChannel,
             announcementPayload
         );
 
@@ -674,7 +812,7 @@ if (channelName === "🛡️-staff-review") {
     }
 
     const rulesMessage =
-        await rulesChannel.send(
+        await sendDiscordText(rulesChannel,
             rulesPayload
         );
 
@@ -950,9 +1088,8 @@ async function handleNotificationToggle(
 }
 async function handleJoin(interaction, campaign) {
     if (campaign.status !== "Active") {
-        return interaction.reply({
+        return interaction.editReply({
             content: "❌ This campaign is no longer active.",
-            ephemeral: true
         });
     }
 
@@ -970,15 +1107,10 @@ async function handleJoin(interaction, campaign) {
         interaction.member.roles.cache.has(campaign.role);
 
     if (alreadySaved && alreadyHasRole) {
-        return interaction.reply({
+        return interaction.editReply({
             content: `❌ You are already in **${campaign.name}**.`,
-            ephemeral: true
         });
     }
-
-    await interaction.deferReply({
-        ephemeral: true
-    });
 
     try {
         // Creates or finds the campaign role.
@@ -1069,7 +1201,7 @@ async function handleJoin(interaction, campaign) {
             campaign.members.push(interaction.user.id);
         }
 
-        await saveMember(
+        await joinMember(
             interaction.client,
             campaign.id,
             interaction.user.id,
@@ -1078,15 +1210,6 @@ async function handleJoin(interaction, campaign) {
                 userId: interaction.user.id,
                 username: interaction.user.username,
                 displayName: interaction.member.displayName,
-                verified: false,
-                tiktok: null,
-                clips: [],
-                totalViews: 0,
-                approvedViews: 0,
-                pendingViews: 0,
-                rejectedViews: 0,
-                payout: 0,
-                joinedAt: Date.now()
             }
         );
 
@@ -1197,10 +1320,6 @@ async function handleJoin(interaction, campaign) {
 }
 
 async function handleLeave(interaction, campaign) {
-    await interaction.deferReply({
-        ephemeral: true
-    });
-
     try {
         await interaction.member.fetch();
 
@@ -1243,7 +1362,7 @@ async function handleLeave(interaction, campaign) {
                 interaction.user.id
             );
 
-        if (!savedMember && !hasRole && !isInMembers) {
+        if ((!savedMember || savedMember.active === false) && !hasRole && !isInMembers) {
             return interaction.editReply({
                 content:
                     `❌ You are not currently in **${campaign.name}**.`
@@ -1285,16 +1404,11 @@ async function handleLeave(interaction, campaign) {
                 memberId !== interaction.user.id
         );
 
-        await deleteMember(
+        await leaveMember(
             interaction.client,
             campaign.id,
             interaction.user.id
-        ).catch(error => {
-            console.error(
-                "Could not delete member record:",
-                error
-            );
-        });
+        );
 
         const category = campaign.category
             ? interaction.guild.channels.cache.get(
@@ -1370,6 +1484,12 @@ async function handleLeave(interaction, campaign) {
     }
 }
 async function handleStatus(interaction, campaign) {
+    await interaction.deferReply({ ephemeral: true });
+    const stats = await getSubmissionStats(interaction.client, interaction.guild.id, campaign.id);
+    campaign = {
+        ...campaign, submissions: stats.submitted, approvedSubmissions: stats.approved,
+        pendingSubmissions: stats.pending, rejectedSubmissions: stats.rejected
+    };
     const numericBudget = moneyNumber(campaign.budget);
     const numericPaid = moneyNumber(campaign.paid);
 
@@ -1384,9 +1504,9 @@ async function handleStatus(interaction, campaign) {
                 ? "#57F287"
                 : "#747F8D"
         )
-        .setTitle(`📊 ${campaign.name} Live Details`)
+        .setTitle(`📊 ${campaign.name} Details`)
         .setDescription(
-            "These numbers are loaded from the latest saved campaign record."
+            "Submission counts come from the database. Views and payouts show the latest recorded totals."
         )
         .addFields(
             {
@@ -1476,13 +1596,12 @@ async function handleStatus(interaction, campaign) {
             }
         )
         .setFooter({
-            text: "United Clips • Live Campaign Details"
+            text: "United Clips • Latest recorded campaign details"
         })
         .setTimestamp();
 
-    return interaction.reply({
+    return interaction.editReply({
         embeds: [statusEmbed],
-        ephemeral: true
     });
 }
 async function handleMyStats(interaction, campaign) {
@@ -1515,32 +1634,9 @@ if (!pool || typeof pool.query !== "function") {
     });
 }
 
-const statsResult = await pool.query(
-    `
-    SELECT
-        COUNT(*)::int AS submitted,
-        COUNT(*) FILTER (
-            WHERE status = 'approved'
-        )::int AS approved,
-        COUNT(*) FILTER (
-            WHERE status = 'pending'
-        )::int AS pending,
-        COUNT(*) FILTER (
-            WHERE status = 'rejected'
-        )::int AS rejected
-    FROM campaign_submissions
-    WHERE guild_id = $1
-      AND campaign_id = $2
-      AND user_id = $3
-    `,
-    [
-        interaction.guild.id,
-        String(campaign.id),
-        interaction.user.id
-    ]
+const stats = await getSubmissionStats(
+    interaction.client, interaction.guild.id, campaign.id, interaction.user.id
 );
-
-const stats = statsResult.rows[0] || {};
 
 const submitted = Number(
     stats.submitted || 0
@@ -1644,18 +1740,23 @@ export default {
                         .setMaxLength(1000)
                         .setRequired(false)
                 )
-        ),
+        )
+        .addSubcommand(subcommand => subcommand.setName('organize').setDescription('Organize the United Clips channel names and layout'))
+        .addSubcommand(subcommand => subcommand.setName('review').setDescription('Recover a saved submission panel in its private staff channel')
+            .addIntegerOption(option => option.setName('submission').setDescription('Submission ID to recover').setMinValue(1).setRequired(true)))
+        .addSubcommand(subcommand => subcommand.setName('browse').setDescription('Browse active campaigns in this server'))
+        .addSubcommand(subcommand => subcommand.setName('submissions').setDescription('View your own recent submissions and review decisions'))
+        .addSubcommand(subcommand => subcommand.setName('panel').setDescription('Publish the creator hub in this channel')),
 
     async execute(interaction) {
         const subcommand =
             interaction.options.getSubcommand();
 
-        if (subcommand !== "create") {
-            return;
-        }
+        if (subcommand === 'browse') return browseCampaigns(interaction);
+        if (subcommand === 'submissions') return showMySubmissions(interaction);
 
         if (
-            !interaction.member.roles.cache.has(
+            !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild) && !interaction.member.roles.cache.has(
                 STAFF_ROLE_ID
             )
         ) {
@@ -1665,6 +1766,11 @@ export default {
                 ephemeral: true
             });
         }
+
+        if (subcommand === 'organize') return organizeUnitedClips(interaction);
+        if (subcommand === 'review') return recoverSubmissionPanel(interaction);
+        if (subcommand === 'panel') return publishCreatorPanel(interaction);
+        if (subcommand !== 'create') return;
 
         const audioFile =
             interaction.options.getAttachment(
@@ -1809,6 +1915,20 @@ try {
             });
         }
 
+        if (id === 'all' && action === 'browse') return browseCampaigns(interaction);
+        if (id === 'all' && action === 'submissions') return showMySubmissions(interaction);
+
+        if (action === 'join' || action === 'leave') {
+            await interaction.deferReply({ ephemeral: true });
+            return withCampaignLock(interaction.client, id, async () => {
+                const latest = await getCampaign(interaction.client, id);
+                if (!latest || !await campaignBelongsToGuild(interaction, latest)) {
+                    return interaction.editReply({ content: 'This campaign is not available in this server.' });
+                }
+                return action === 'join' ? handleJoin(interaction, latest) : handleLeave(interaction, latest);
+            });
+        }
+
         const campaign = await getCampaign(
             interaction.client,
             id
@@ -1821,23 +1941,13 @@ try {
             });
         }
 
+        if (!await campaignBelongsToGuild(interaction, campaign)) {
+            return interaction.reply({ content: 'This campaign is not available in this server.', ephemeral: true });
+        }
+
         if (!Array.isArray(campaign.members)) {
             campaign.members = [];
         }
-
-        if (action === "join") {
-    return handleJoin(
-        interaction,
-        campaign
-    );
-}
-
-if (action === "leave") {
-    return handleLeave(
-        interaction,
-        campaign
-    );
-}
 
 if (action === "status") {
     return handleStatus(
