@@ -52,6 +52,17 @@ export async function ensurePaymentTables(client) {
         CREATE INDEX IF NOT EXISTS campaign_earnings_user_idx
         ON campaign_earnings (guild_id, user_id, created_at DESC)
     `);
+
+    await pool.query(`ALTER TABLE campaign_earnings
+        ADD COLUMN IF NOT EXISTS record_reference TEXT,
+        ADD COLUMN IF NOT EXISTS recorded_by TEXT`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS campaign_earnings_reference_idx
+        ON campaign_earnings (guild_id, record_reference) WHERE record_reference IS NOT NULL`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS earning_audit (
+        id BIGSERIAL PRIMARY KEY, earning_id BIGINT NOT NULL REFERENCES campaign_earnings(id),
+        guild_id TEXT NOT NULL, actor_id TEXT NOT NULL, status TEXT NOT NULL,
+        recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
 }
 
 export async function savePaymentMethod(
@@ -172,6 +183,7 @@ export async function getUserEarnings(
         `
         SELECT
             id,
+            record_reference,
             campaign_name,
             cycle_name,
             amount,
@@ -215,15 +227,23 @@ export async function addCampaignEarning(
         campaignName,
         cycleName = null,
         amount,
-        status = "estimated"
+        status = "estimated",
+        reference = null,
+        recordedBy = null
     }
 ) {
     await ensurePaymentTables(client);
 
     const numericAmount = Number(amount);
 
-    if (!Number.isFinite(numericAmount) || numericAmount < 0) {
-        throw new Error("Earning amount must be a valid positive number.");
+    if (!Number.isFinite(numericAmount) || numericAmount < 0 || numericAmount > 9999999999.99
+        || !/^\d{1,10}(\.\d{1,2})?$/.test(String(amount))) {
+        throw new Error("Use a non-negative dollar amount with at most two decimal places.");
+    }
+    if (!guildId || !userId || !campaignName || String(campaignName).length > 100
+        || (cycleName && String(cycleName).length > 60)
+        || (reference !== null && (!/^[a-zA-Z0-9._:-]{1,80}$/.test(reference) || !recordedBy))) {
+        throw new Error("Invalid earning details or reference.");
     }
 
     const validStatuses = [
@@ -241,17 +261,23 @@ export async function addCampaignEarning(
 
     const result = await pool.query(
         `
-        INSERT INTO campaign_earnings (
+        WITH inserted AS (INSERT INTO campaign_earnings (
             guild_id,
             user_id,
             campaign_name,
             cycle_name,
             amount,
-            status
+            status,
+            record_reference,
+            recorded_by
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
-
-        RETURNING *
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (guild_id, record_reference) WHERE record_reference IS NOT NULL DO NOTHING
+        RETURNING *), audited AS (
+            INSERT INTO earning_audit (earning_id, guild_id, actor_id, status)
+            SELECT id, guild_id, $8, status FROM inserted WHERE $8 IS NOT NULL
+            RETURNING id
+        ) SELECT * FROM inserted
         `,
         [
             guildId,
@@ -259,9 +285,31 @@ export async function addCampaignEarning(
             campaignName,
             cycleName,
             numericAmount,
-            status
+            status,
+            reference,
+            recordedBy
         ]
     );
 
-    return result.rows[0];
+    if (result.rows[0]) return { ...result.rows[0], created: true };
+    const existing = await pool.query(`SELECT id FROM campaign_earnings WHERE guild_id = $1 AND record_reference = $2`, [guildId, reference]);
+    return { id: existing.rows[0]?.id, created: false };
+}
+
+export async function setEarningStatus(client, { guildId, earningId, status, recordedBy }) {
+    if (!['estimated', 'approved', 'paid', 'cancelled'].includes(status) || !recordedBy) {
+        throw new Error('Invalid earning status or staff member.');
+    }
+    await ensurePaymentTables(client);
+    const pool = getPool(client);
+    const result = await pool.query(`WITH updated AS (
+        UPDATE campaign_earnings SET status = $3
+        WHERE guild_id = $1 AND id = $2 AND status <> $3 RETURNING *
+    ), audited AS (
+        INSERT INTO earning_audit (earning_id, guild_id, actor_id, status)
+        SELECT id, guild_id, $4, status FROM updated RETURNING id
+    ) SELECT * FROM updated`, [guildId, earningId, status, recordedBy]);
+    if (result.rows[0]) return result.rows[0];
+    const existing = await pool.query(`SELECT * FROM campaign_earnings WHERE guild_id = $1 AND id = $2`, [guildId, earningId]);
+    return existing.rows[0] || null;
 }
