@@ -13,6 +13,7 @@ import { splitDiscordText, sendDiscordText } from '../src/utils/discordMessages.
 import campaignCommand from '../src/commands/Tools/campaign.js';
 import paymentCommand from '../src/commands/Payments/payments.js';
 import campaignCreateModal from '../src/interactions/modals/campaignCreateModal.js';
+import { getCampaignPayoutRows, payoutWriteData, syncCampaignPayoutSheet, changeCampaignStatus, handleCampaignStaffButton } from '../src/services/campaignStaffService.js';
 import { ensureTrackingTables, configureTracking, reserveTrackingRun, launchTrackingRun, applyTrackingResult,
     getTrackedStats, estimateClipEarnings, estimateRunChargeMicros } from '../src/services/clipTrackingService.js';
 
@@ -208,6 +209,21 @@ test('payment records require staff permission at execution time', async () => {
     assert.match(response.content, /Only the campaign team/);
 });
 
+test('staff ledger shows the selected creator payout account only in its own guild and a private reply', async () => {
+    await savePaymentMethod(client,'payout-lookup-guild','lookup-creator','paypal','creator@example.com','Creator','Creator');
+    let deferred;
+    let reply;
+    const interaction = { client, guild:{id:'payout-lookup-guild',name:'Test'}, memberPermissions:{has:()=>true},
+        options:{getSubcommand:()=> 'ledger',getUser:()=>({id:'lookup-creator',username:'Creator'})},
+        deferReply:async payload=>{deferred=payload;},editReply:async payload=>{reply=payload;} };
+    await paymentCommand.execute(interaction,{},client);
+    assert.equal(deferred.flags,64);
+    assert.equal(reply.embeds[0].toJSON().fields.find(field=>field.name==='PayPal recipient').value,'creator@example.com');
+    assert.deepEqual(reply.allowedMentions.parse,[]);
+    await paymentCommand.execute({...interaction,guild:{id:'other-payout-lookup-guild',name:'Other'}},{},client);
+    assert.match(reply.embeds[0].toJSON().fields.find(field=>field.name==='PayPal recipient').value,/No PayPal account saved/);
+});
+
 test('campaign close persists before buttons refresh and retains campaign history', async () => {
     const stored = new Map([['campaigns:close-test', { id: 'close-test', guildId: 'close-guild', channel: 'brief-channel',
         name: 'Closing Campaign', status: 'Active', members: ['creator'], views: 3000, paid: 2 }]]);
@@ -330,3 +346,49 @@ test('tracking reserves a shared monthly cap across guilds and uncertain runs ca
     assert.equal(Number((await postgres.query('SELECT SUM(reserved_micros) AS total FROM clip_tracking_month WHERE month=$1',['2030-01'])).rows[0].total),5000000);
     assert.ok(await reserveTrackingRun(bot,'budget-guild',[],urls,new Date('2030-02-02T00:00:00Z'),true));
 });
+
+test('private campaign payout sheets map PayPal and ledger totals by guild and preserve staff cells', async () => {
+    const campaign = {id:'sheet-campaign',guildId:'sheet-guild',name:'Sheet Campaign',status:'Active',members:['sheet-creator'],trackingTerms:{cpm:2}};
+    await ensureTrackingTables(client);
+    await savePaymentMethod(client,'sheet-guild','sheet-creator','paypal','correct@example.com','=Creator','Creator');
+    await savePaymentMethod(client,'other-sheet-guild','sheet-creator','paypal','wrong@example.com','Other','Other');
+    await addCampaignEarning(client,{guildId:'sheet-guild',userId:'sheet-creator',campaignName:campaign.name,amount:1.23,status:'estimated'});
+    await addCampaignEarning(client,{guildId:'sheet-guild',userId:'sheet-creator',campaignName:campaign.name,amount:2.34,status:'approved'});
+    await addCampaignEarning(client,{guildId:'sheet-guild',userId:'sheet-creator',campaignName:campaign.name,amount:3.45,status:'paid'});
+    await addCampaignEarning(client,{guildId:'other-sheet-guild',userId:'sheet-creator',campaignName:campaign.name,amount:100,status:'approved'});
+    const rows = await getCampaignPayoutRows(client,campaign,[campaign]);
+    assert.equal(rows[0][1],'sheet-creator'); assert.equal(rows[0][8],'correct@example.com');
+    assert.equal(rows[0][4],3.57); assert.equal(rows[0][9],1.23); assert.equal(rows[0][10],2.34); assert.equal(rows[0][11],3.45);
+    const writes = payoutWriteData([['Creator','Discord User ID'],['Creator','sheet-creator',0,2,0,'yes','=DATE(2026,10,7)','keep this']],rows,'2030-01-01');
+    assert.deepEqual(writes.map(write=>write.range),['Payouts!A1:R1','Payouts!A2:E2','Payouts!I2:R2']);
+    assert.equal(writes[2].values[0][8],'2030-01-01');
+    assert.throws(()=>payoutWriteData([[],['A','same'],['B','same']],[],'now'),/Duplicate/);
+    const ambiguous = await getCampaignPayoutRows(client,campaign,[campaign,{...campaign,id:'duplicate-name'}]);
+    assert.equal(ambiguous[0][4],0);
+    let write;
+    const api = {drive:{permissions:{list:async()=>({data:{permissions:[{type:'user'}]}})}},sheets:{spreadsheets:{
+        get:async()=>({data:{sheets:[{properties:{title:'Payouts',sheetId:1}}]}}),batchUpdate:async()=>{},values:{
+            get:async()=>({data:{values:[['Creator','Discord User ID']]}}),batchUpdate:async request=>{write=request;}
+        }}}};
+    const configured = {...campaign,googleSheetId:'private-sheet'};
+    assert.equal(await syncCampaignPayoutSheet(client,configured,[campaign],{clients:api,force:true}),true);
+    assert.equal(write.requestBody.valueInputOption,'RAW'); assert.equal(write.spreadsheetId,'private-sheet');
+    api.drive.permissions.list=async()=>({data:{permissions:[{type:'anyone'}]}});
+    await assert.rejects(syncCampaignPayoutSheet(client,configured,[campaign],{clients:api,force:true}),/private campaign/);
+});
+
+test('staff controls deny creators, persist pause/resume/end, and reject cross-guild changes', async () => {
+    let saved = {id:'control-campaign',guildId:'control-guild',name:'Control',status:'Active'};
+    const bot = {db:{get:async()=>saved,set:async(key,value)=>{saved=value;}}};
+    let reply;
+    await handleCampaignStaffButton({guild:{id:'control-guild'},memberPermissions:{has:()=>false},member:{roles:{cache:new Map()}},
+        reply:async value=>{reply=value;},customId:'campaign_staff_end_control-campaign',client:bot});
+    assert.equal(reply.flags,64); assert.match(reply.content,/Only the Campaign Team/); assert.equal(saved.status,'Active');
+    await assert.rejects(changeCampaignStatus(bot,saved.id,'other-guild','end','staff'),/not available/);
+    assert.equal((await changeCampaignStatus(bot,saved.id,'control-guild','pause','staff')).status,'Paused');
+    assert.match(await submissionAccessError({guild:{id:'control-guild'}},bot,saved),/paused/);
+    assert.equal((await changeCampaignStatus(bot,saved.id,'control-guild','resume','staff')).status,'Active');
+    assert.equal((await changeCampaignStatus(bot,saved.id,'control-guild','end','staff')).status,'Closed');
+    assert.equal(saved.closedBy,'staff'); await assert.rejects(changeCampaignStatus(bot,saved.id,'control-guild','resume','staff'),/already ended/);
+});
+
