@@ -22,7 +22,7 @@ export function getGoogleErrorSummary(error) {
 |
 */
 
-function getGoogleClients() {
+export function getGoogleClients() {
     const clientId =
         process.env.GOOGLE_OAUTH_CLIENT_ID;
 
@@ -60,6 +60,7 @@ function getGoogleClients() {
     });
 
     return {
+        drive: google.drive({ version: "v3", auth }),
         sheets: google.sheets({
             version: "v4",
             auth
