@@ -14,7 +14,7 @@ export async function submissionAccessError(interaction, client, campaign) {
     if (!await campaignBelongsToGuild(interaction, campaign)) {
         return 'This campaign is not available in this server.';
     }
-    if (campaign.status !== 'Active') return 'This campaign is closed for submissions.';
+    if (campaign.status !== 'Active') return campaign.status === 'Paused' ? 'This campaign is paused for submissions.' : 'This campaign is closed for submissions.';
     const member = await getMember(client, campaign.id, interaction.user.id);
     const joined = Array.isArray(campaign.members) && campaign.members.includes(interaction.user.id);
     if (!joined && (!member || member.active === false)) return 'Join this campaign before submitting a clip.';

@@ -9,7 +9,7 @@ import {
 } from "discord.js";
 
 import { getColor } from "../../config/bot.js";
-import { ensurePaymentTables, addCampaignEarning, setEarningStatus, getUserEarnings } from "../../services/paymentService.js";
+import { ensurePaymentTables, addCampaignEarning, setEarningStatus, getUserEarnings, getPaymentMethods } from "../../services/paymentService.js";
 
 const earningStatuses = [
     { name: 'Estimated', value: 'estimated' }, { name: 'Approved', value: 'approved' },
@@ -110,12 +110,19 @@ export default {
             if (subcommand === 'ledger') {
                 const creator = interaction.options.getUser('creator', true);
                 const result = await getUserEarnings(client, interaction.guild.id, creator.id);
+                const methods = await getPaymentMethods(client, interaction.guild.id, creator.id);
+                const paypal = methods.find(method => method.provider === 'paypal');
                 const embed = new EmbedBuilder().setTitle('Staff Earnings Ledger').setColor(getColor('success'))
                     .setDescription(result.earnings.length ? result.earnings.map(row =>
                         `**#${row.id} · ${row.campaign_name}**\n$${Number(row.amount).toFixed(2)} · ${row.status}${row.record_reference ? ` · ${row.record_reference}` : ''}`
                     ).join('\n\n').slice(0, 4000) : 'No earnings recorded for this creator.')
+                    .addFields(
+                        { name: 'Creator', value: `${creator.username || creator.id} · ${creator.id}` },
+                        { name: 'PayPal recipient', value: paypal?.account_email || 'No PayPal account saved. Ask this creator to use Add Payout Account in payout-settings.' },
+                        ...(paypal ? [{ name: 'Account updated', value: `<t:${Math.floor(new Date(paypal.updated_at).getTime() / 1000)}:f>` }] : [])
+                    )
                     .setFooter({ text: 'Private staff ledger · Paid records reflect payments completed externally' });
-                return interaction.editReply({ embeds: [embed] });
+                return interaction.editReply({ embeds: [embed], allowedMentions: { parse: [] } });
             }
         } catch (error) {
             const message = /^Use a non-negative|^Invalid earning/.test(error.message)

@@ -6,6 +6,7 @@ import { reconcileTicketPanels, reconcileVerificationPanels, reconcileReactionRo
 import { reconcileLevelRoles } from "../services/leveling/levelRoleSyncService.js";
 import { initRiffyAfterReady } from "../services/music/riffySetup.js";
 import { startClipTracking } from '../services/clipTrackingService.js';
+import { startCampaignStaffSync } from '../services/campaignStaffService.js';
 
 export default {
   name: Events.ClientReady,
@@ -19,6 +20,7 @@ export default {
       startupLog(`Serving ${client.guilds.cache.size} guild(s)`);
       startupLog(`Loaded ${client.commands.size} commands`);
       startClipTracking(client);
+      startCampaignStaffSync(client);
 
       if (client.config?.features?.music) {
         initRiffyAfterReady(client);
