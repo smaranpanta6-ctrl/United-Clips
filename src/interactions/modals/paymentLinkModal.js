@@ -51,9 +51,9 @@ export default {
         return interaction.editReply({
             embeds: [
                 new EmbedBuilder()
-                    .setTitle("✅ Wallet Updated")
+                    .setTitle("✅ Payout Account Saved")
                     .setDescription(
-                        "Your payment method was successfully saved."
+                        "Your payout email was saved for staff. This does not authorize or send a PayPal payment."
                     )
                     .addFields(
                         {
@@ -68,7 +68,7 @@ export default {
                         }
                     )
                     .setFooter({
-                        text: "Future campaign payouts will be routed to this address."
+                        text: "Staff handles payouts under each campaign’s terms."
                     })
                     .setColor(getColor("success"))
                     .setTimestamp()
