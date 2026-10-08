@@ -1,7 +1,7 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { PGlite } from '@electric-sql/pglite';
-import { ensurePaymentTables, savePaymentMethod, getPaymentMethods } from '../src/services/paymentService.js';
+import { ensurePaymentTables, savePaymentMethod, getPaymentMethods, addCampaignEarning, getUserEarnings, setEarningStatus } from '../src/services/paymentService.js';
 import { createSubmission, getSubmission, reviewSubmission, getSubmissionStats, listUserSubmissions, DuplicateSubmissionError } from '../src/services/submissionService.js';
 import { validateClipUrl } from '../src/utils/clipValidation.js';
 import { campaignDetails } from '../src/utils/campaignDetails.js';
@@ -11,6 +11,10 @@ import { withCampaignLock } from '../src/utils/campaignLock.js';
 import { joinMember, leaveMember } from '../src/utils/campaignMembers.js';
 import { splitDiscordText, sendDiscordText } from '../src/utils/discordMessages.js';
 import campaignCommand from '../src/commands/Tools/campaign.js';
+import paymentCommand from '../src/commands/Payments/payments.js';
+import campaignCreateModal from '../src/interactions/modals/campaignCreateModal.js';
+import { ensureTrackingTables, configureTracking, reserveTrackingRun, launchTrackingRun, applyTrackingResult,
+    getTrackedStats, estimateClipEarnings, estimateRunChargeMicros } from '../src/services/clipTrackingService.js';
 
 let postgres;
 let client;
@@ -162,7 +166,7 @@ test('long briefs fit Discord messages without dropping requirements or pinging 
 
 test('campaign command registers staff maintenance without increasing the command count', async () => {
     const command = campaignCommand.data.toJSON();
-    assert.deepEqual(command.options.map(option => option.name), ['create', 'organize', 'review', 'browse', 'submissions', 'panel']);
+    assert.deepEqual(command.options.map(option => option.name), ['create', 'organize', 'review', 'browse', 'submissions', 'panel', 'close', 'tracking', 'terms']);
     let response;
     await campaignCommand.execute({
         options: { getSubcommand: () => 'organize' },
@@ -170,4 +174,159 @@ test('campaign command registers staff maintenance without increasing the comman
         reply: async payload => { response = payload; }
     });
     assert.match(response.content, /Only staff/);
+});
+
+test('staff earnings deduplicate references, isolate guilds, and audit status changes', async () => {
+    const details = { guildId: 'ledger-guild', userId: 'ledger-creator', campaignName: 'Reviewed Campaign',
+        amount: 12.34, status: 'approved', reference: 'submission-123-october', recordedBy: 'staff' };
+    const first = await addCampaignEarning(client, details);
+    assert.equal(first.created, true);
+    const duplicate = await addCampaignEarning(client, { ...details, amount: 99 });
+    assert.equal(duplicate.created, false);
+    assert.equal(duplicate.id, first.id);
+    const earnings = await getUserEarnings(client, details.guildId, details.userId);
+    assert.equal(earnings.earnings.length, 1);
+    assert.equal(earnings.totalBalance, 12.34);
+    assert.deepEqual((await getUserEarnings(client, 'other-ledger-guild', details.userId)).earnings, []);
+    assert.equal(await setEarningStatus(client, { guildId: 'other-ledger-guild', earningId: first.id, status: 'paid', recordedBy: 'staff' }), null);
+    await setEarningStatus(client, { guildId: details.guildId, earningId: first.id, status: 'paid', recordedBy: 'staff' });
+    await setEarningStatus(client, { guildId: details.guildId, earningId: first.id, status: 'paid', recordedBy: 'staff' });
+    assert.equal((await getUserEarnings(client, details.guildId, details.userId)).totalBalance, 0);
+    const audit = await postgres.query('SELECT status FROM earning_audit WHERE earning_id=$1 ORDER BY id', [first.id]);
+    assert.deepEqual(audit.rows.map(row => row.status), ['approved', 'paid']);
+    for (const amount of [-1, 1.001, Infinity, 10000000000]) {
+        await assert.rejects(addCampaignEarning(client, { ...details, reference: 'invalid', amount }));
+    }
+    await assert.rejects(addCampaignEarning(client, { ...details, reference: 'invalid reference' }));
+});
+
+test('payment records require staff permission at execution time', async () => {
+    assert.deepEqual(paymentCommand.data.toJSON().options.map(option => option.name), ['post', 'record', 'status', 'ledger']);
+    let response;
+    await paymentCommand.execute({ guild: { id: 'guild' }, memberPermissions: { has: () => false },
+        member: { roles: { cache: new Map() } }, reply: async payload => { response = payload; } });
+    assert.match(response.content, /Only the campaign team/);
+});
+
+test('campaign close persists before buttons refresh and retains campaign history', async () => {
+    const stored = new Map([['campaigns:close-test', { id: 'close-test', guildId: 'close-guild', channel: 'brief-channel',
+        name: 'Closing Campaign', status: 'Active', members: ['creator'], views: 3000, paid: 2 }]]);
+    const channel = { id: 'brief-channel', isTextBased: () => true, messages: { fetch: async () => new Map() } };
+    const bot = { user: { id: 'bot' }, db: { get: async key => stored.get(key),
+        set: async (key, value) => stored.set(key, value), list: async () => [...stored.keys()] } };
+    let reply;
+    await campaignCommand.execute({ client: bot, guild: { id: 'close-guild', channels: { cache: new Map([['brief-channel', channel]]) } },
+        user: { id: 'staff' }, memberPermissions: { has: () => true },
+        options: { getSubcommand: () => 'close', getChannel: () => channel },
+        deferReply: async () => {}, editReply: async response => { reply = response; } });
+    const result = stored.get('campaigns:close-test');
+    assert.equal(result.status, 'Closed');
+    assert.equal(result.closedBy, 'staff');
+    assert.equal(result.views, 3000);
+    assert.equal(result.paid, 2);
+    assert.deepEqual(result.members, ['creator']);
+    assert.match(reply.content, /history and earnings are preserved/);
+    assert.match(await submissionAccessError({ guild: { id: 'close-guild' } }, bot, result), /closed/);
+});
+
+test('silent campaign creation explicitly uses the active category and survives optional Sheets failure', async () => {
+    const activeId = process.env.ACTIVE_CATEGORY_ID || '1531525611057582182';
+    const stored = new Map();
+    const bot = { db: { get: async key => stored.get(key), set: async (key, value) => stored.set(key, value) } };
+    let creation;
+    let reply;
+    const sent = [];
+    const guild = { id: 'creation-guild', channels: {
+        fetch: async id => ({ id, type: 4 }), create: async options => {
+            creation = options;
+            return { id: 'created-brief', send: async payload => { sent.push(payload); return { id: 'brief-message' }; } };
+        }
+    } };
+    const base = { client: bot, guild, user: { id: 'staff' }, memberPermissions: { has: () => true } };
+    await campaignCommand.execute({ ...base, options: { getSubcommand: () => 'create', getAttachment: () => null,
+        getString: () => null, getBoolean: () => false }, showModal: async () => {} });
+    const originalGoogleClientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+    delete process.env.GOOGLE_OAUTH_CLIENT_ID;
+    try {
+        const fields = { campaign_name: 'Category Check', campaign_client: 'Test', campaign_info: 'Platform: TikTok\nCPM: $0',
+            campaign_brief: 'Test workflow only.', campaign_description: 'Not a live campaign.' };
+        await campaignCreateModal.execute({ ...base, fields: { getTextInputValue: key => fields[key] },
+            deferReply: async () => {}, editReply: async value => { reply = value; } }, bot);
+    } finally {
+        if (originalGoogleClientId === undefined) delete process.env.GOOGLE_OAUTH_CLIENT_ID;
+        else process.env.GOOGLE_OAUTH_CLIENT_ID = originalGoogleClientId;
+    }
+    assert.equal(creation.parent, activeId);
+    assert.equal(sent.length, 1);
+    const campaign = [...stored.values()][0];
+    assert.equal(campaign.guildId, guild.id);
+    assert.equal(campaign.channel, 'created-brief');
+    assert.equal(campaign.status, 'Active');
+    assert.match(reply.content, /created successfully/);
+    assert.match(reply.content, /Sheet creation failed/);
+});
+
+test('tracking estimates require explicit terms, enforce minimums and caps, and never invent counts', () => {
+    assert.equal(estimateClipEarnings(2000,null),null);
+    assert.equal(estimateClipEarnings(499,{cpm:2,minimumViews:500}),0);
+    assert.equal(estimateClipEarnings(2500,{cpm:2,minimumViews:500,maximumPayout:3}),3);
+    assert.equal(estimateClipEarnings(-1,{cpm:2,minimumViews:0}),null);
+    assert.equal(estimateRunChargeMicros({},20000),20000);
+    const billing = {usageTotalUsd:0.003,chargedEventCounts:{result:1},pricingInfo:{pricingModel:'PAY_PER_EVENT',
+        pricingPerEvent:{actorChargeEvents:{result:{eventTieredPricingUsd:{FREE:{tieredEventPriceUsd:0.003},GOLD:{tieredEventPriceUsd:0.001}}}}}}};
+    assert.equal(estimateRunChargeMicros(billing,20000),7000);
+    assert.equal(estimateRunChargeMicros({...billing,usageTotalUsd:100},20000),20000);
+});
+
+test('TikTok updates match the exact approved video and preserve staff-set payout status', async () => {
+    const campaign = {id:'tracked-campaign',guildId:'tracked-guild',name:'Tracked Campaign',status:'Active',
+        trackingTerms:{cpm:2,minimumViews:500,maximumPayout:3}};
+    const bot = {db:{pool:client.db.pool,get:async key=>key==='campaigns:tracked-campaign'?campaign:null}};
+    await ensureTrackingTables(bot);
+    const clip = await createSubmission(bot,{guildId:'tracked-guild',campaignId:campaign.id,userId:'tracked-creator',
+        videoUrl:'https://www.tiktok.com/@creator/video/246813579',platform:'TikTok'});
+    const item = {playCount:2500,webVideoUrl:clip.video_url};
+    assert.equal(await applyTrackingResult(bot,clip.id,'tracked-guild',item),false);
+    await reviewSubmission(bot,{guildId:'tracked-guild',submissionId:clip.id,expectedStatus:'pending',status:'approved',reviewedBy:'staff'});
+    assert.equal(await applyTrackingResult(bot,clip.id,'other-guild',item),false);
+    assert.equal(await applyTrackingResult(bot,clip.id,'tracked-guild',{...item,webVideoUrl:'https://www.tiktok.com/@creator/video/111'}),false);
+    assert.equal(await applyTrackingResult(bot,clip.id,'tracked-guild',item),true);
+    assert.equal((await getTrackedStats(bot,'tracked-guild',campaign.id)).views,2500);
+    const earning = (await getUserEarnings(bot,'tracked-guild','tracked-creator')).earnings[0];
+    assert.equal(Number(earning.amount),3);
+    await setEarningStatus(bot,{guildId:'tracked-guild',earningId:earning.id,status:'paid',recordedBy:'staff'});
+    assert.equal(await applyTrackingResult(bot,clip.id,'tracked-guild',{...item,playCount:1000}),true);
+    assert.equal(await applyTrackingResult(bot,clip.id,'tracked-guild',{...item,errorCode:'PRIVATE'}),false);
+    const after = (await getUserEarnings(bot,'tracked-guild','tracked-creator')).earnings[0];
+    assert.equal(after.status,'paid');
+    assert.equal(Number(after.amount),3);
+    assert.equal((await getTrackedStats(bot,'tracked-guild',campaign.id)).views,1000);
+});
+
+test('tracking reserves a shared monthly cap across guilds and uncertain runs cannot be retried as free', async () => {
+    const bot = {db:client.db};
+    await configureTracking(bot,'budget-guild',{enabled:true,intervalMinutes:15});
+    await configureTracking(bot,'budget-other',{enabled:true,intervalMinutes:15});
+    const urls = Array.from({length:100},(_,i)=>`https://www.tiktok.com/@creator/video/${100000000+i}`);
+    const date = new Date('2030-01-02T00:00:00Z');
+    let first;
+    for (let i=0;i<5;i++) {
+        const run = await reserveTrackingRun(bot,i%2?'budget-other':'budget-guild',[],urls,date,true);
+        assert.equal(run.charge_limit_micros,1000000);
+        first ??= run;
+    }
+    assert.equal(await reserveTrackingRun(bot,'budget-guild',[],urls,date,true),null);
+    const total = (await postgres.query('SELECT SUM(reserved_micros) AS total FROM clip_tracking_month WHERE month=$1',['2030-01'])).rows[0];
+    assert.equal(Number(total.total),5000000);
+    let requested;
+    assert.equal(await launchTrackingRun(bot,first,async(url,options)=>{
+        requested={url:new URL(url),body:JSON.parse(options.body)};
+        throw new Error('Simulated network failure');
+    }),null);
+    assert.equal(requested.url.searchParams.get('maxTotalChargeUsd'),'1.000000');
+    assert.equal(requested.url.searchParams.get('forcePermissionLevel'),'LIMITED_PERMISSIONS');
+    assert.equal(requested.body.shouldDownloadVideos,false);
+    assert.equal((await postgres.query('SELECT status FROM clip_tracking_runs WHERE id=$1',[first.id])).rows[0].status,'uncertain');
+    assert.equal(Number((await postgres.query('SELECT SUM(reserved_micros) AS total FROM clip_tracking_month WHERE month=$1',['2030-01'])).rows[0].total),5000000);
+    assert.ok(await reserveTrackingRun(bot,'budget-guild',[],urls,new Date('2030-02-02T00:00:00Z'),true));
 });
