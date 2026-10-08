@@ -188,3 +188,14 @@ export async function getSubmissionStats(client, guildId, campaignId, userId = n
     `, [guildId, String(campaignId), userId]);
     return result.rows[0];
 }
+
+export async function listUserSubmissions(client, guildId, userId, limit = 10) {
+    await ensureSubmissionTable(client);
+    const result = await getPool(client).query(`
+        SELECT id, campaign_id, video_url, platform, status, rejection_reason, created_at
+        FROM campaign_submissions
+        WHERE guild_id = $1 AND user_id = $2
+        ORDER BY created_at DESC, id DESC LIMIT $3
+    `, [guildId, userId, Math.min(10, Math.max(1, limit))]);
+    return result.rows;
+}
