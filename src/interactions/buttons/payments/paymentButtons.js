@@ -67,7 +67,7 @@ async function handleManagePayments(interaction, client) {
                 new EmbedBuilder()
                     .setTitle("📋 Payment Methods")
                     .setDescription(
-                        "You do not have a payment method linked yet.\n\nPress **Link Payment Method** to add your PayPal email."
+                        "You do not have a payout account saved yet.\n\nPress **Add Payout Account** to save the PayPal email staff uses for payouts."
                     )
                     .setColor(getColor("warning"))
             ]
@@ -79,7 +79,7 @@ async function handleManagePayments(interaction, client) {
     const embed = new EmbedBuilder()
         .setTitle("✅ Payment Method Linked")
         .setDescription(
-            "All future campaign payouts will be routed to this payment account."
+            "This is the payout email saved for staff. Payments are handled separately under each campaign’s terms."
         )
         .addFields(
             {
@@ -136,7 +136,8 @@ async function handleBalance(interaction, client) {
     );
 
     const embed = new EmbedBuilder()
-        .setTitle(`💵 ${interaction.user.username}'s Estimated Balance`)
+        .setTitle('💵 My Recorded Earnings')
+        .setDescription('Staff records reviewed earnings here. Estimated amounts are provisional; Paid means staff recorded a payment completed externally.')
         .setColor(getColor("success"))
         .setThumbnail(interaction.user.displayAvatarURL())
         .setFooter({
@@ -149,7 +150,8 @@ async function handleBalance(interaction, client) {
             [
                 "You do not have any campaign earnings recorded yet.",
                 "",
-                "**Total Estimated Balance: `$0.00`**"
+                "**Unpaid Recorded Balance: `$0.00`**",
+                "Staff-reviewed earning records will appear here. This panel does not send money."
             ].join("\n")
         );
 
@@ -173,7 +175,7 @@ async function handleBalance(interaction, client) {
                         : "🟡 Estimated";
 
         embed.addFields({
-            name: `${earning.campaign_name}${cycleText}`,
+            name: `#${earning.id} · ${earning.campaign_name}${cycleText}`.slice(0, 256),
             value: [
                 `Earned: **$${Number(earning.amount).toFixed(2)}**`,
                 `Status: ${statusText}`,
@@ -186,7 +188,7 @@ async function handleBalance(interaction, client) {
     }
 
     embed.addFields({
-        name: "💰 Total Estimated Balance",
+        name: "💰 Unpaid Recorded Balance",
         value: `**$${result.totalBalance.toLocaleString("en-US", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2

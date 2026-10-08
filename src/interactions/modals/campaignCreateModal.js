@@ -348,7 +348,7 @@ campaign.publicMessageId =
 // Persist before optional services and notifications so Join works immediately.
 await saveCampaign(client, id, campaign);
 
-await notifyCampaignSubscribers(
+if (draft.notifyMembers !== false) await notifyCampaignSubscribers(
     client,
     interaction.guild,
     campaign,
