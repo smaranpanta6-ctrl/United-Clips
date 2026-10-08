@@ -282,7 +282,9 @@ export async function appendSubmissionReview({
     await sheets.spreadsheets.values.append({
         spreadsheetId,
         range: "Reviews!A:L",
-        valueInputOption: "USER_ENTERED",
+        // Treat creator names, notes, and Discord IDs as data, preserving long IDs
+        // and preventing user-supplied text from becoming spreadsheet formulas.
+        valueInputOption: "RAW",
         insertDataOption: "INSERT_ROWS",
 
         requestBody: {
