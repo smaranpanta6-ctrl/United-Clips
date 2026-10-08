@@ -11,7 +11,7 @@ export function buildCampaignRules(campaign) {
             { name: '📤 Before you submit', value: '• Check the published rate, minimum views, deadline, and limits.\n• Keep your video public for the review and payout period stated in the brief.\n• Use Submit Clip in this campaign workspace.' }
         )
         .setFooter({ text: 'United Clips • Staff reviews eligibility • Questions? Open a support ticket' });
-    if (campaign.audioLink) embed.addFields({ name: '🔊 Campaign audio', value: `${campaign.audioLink}\nFollow the audio requirements in the brief.` });
+    if (campaign.audioLink) embed.addFields({ name: '🔊 Campaign audio', value: campaign.audioLink });
     if (campaign.audioFile?.url) embed.addFields({ name: '📎 Audio file', value: 'The campaign audio is attached below. Follow the requirements in the brief.' });
     return embed;
 }
