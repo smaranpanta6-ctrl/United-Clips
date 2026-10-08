@@ -34,6 +34,7 @@ import { withCampaignLock } from '../../utils/campaignLock.js';
 import { sendDiscordText } from '../../utils/discordMessages.js';
 import { configureTracking, getTrackedStats } from '../../services/clipTrackingService.js';
 import { buildCampaignRules } from '../../utils/campaignRules.js';
+import { handleCampaignStaffButton } from '../../services/campaignStaffService.js';
 
 console.log("🔥 CAMPAIGN COMMAND LOADED 🔥");
 
@@ -306,7 +307,7 @@ function buildCampaignEmbed(campaign) {
                     `**Status:** ${
                         campaign.status === "Active"
                             ? "🟢 Active"
-                            : "⚫ Closed"
+                            : campaign.status === "Paused" ? "⏸️ Paused" : "⚫ Closed"
                     }`
                 ].join("\n"),
                 inline: false
@@ -408,7 +409,8 @@ function buildWorkspaceButtons(campaign) {
             .setCustomId(`submit_clip:${campaign.id}`)
             .setLabel("Submit Clip")
             .setEmoji("📤")
-            .setStyle(ButtonStyle.Success),
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(campaign.status !== 'Active'),
 
         new ButtonBuilder()
     .setCustomId(`campaign_mystats_${campaign.id}`)
@@ -1912,6 +1914,7 @@ try {
     },
 
     async button(interaction) {
+       if (interaction.customId.startsWith('campaign_staff_')) return handleCampaignStaffButton(interaction);
        const parts = interaction.customId.split("_");
 
         const prefix = parts[0];
