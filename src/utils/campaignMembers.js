@@ -40,6 +40,27 @@ export async function getMember(
     ) || null;
 }
 
+export async function joinMember(client, campaignId, userId, profile) {
+    const previous = await getMember(client, campaignId, userId);
+    const member = {
+        verified: false, tiktok: null, clips: [], totalViews: 0,
+        approvedViews: 0, pendingViews: 0, rejectedViews: 0, payout: 0,
+        ...previous, ...profile, campaignId, userId,
+        active: true, joinedAt: previous?.joinedAt || Date.now(),
+        rejoinedAt: previous ? Date.now() : null, leftAt: null
+    };
+    await saveMember(client, campaignId, userId, member);
+    return member;
+}
+
+export async function leaveMember(client, campaignId, userId) {
+    const previous = await getMember(client, campaignId, userId);
+    if (!previous) return null;
+    const member = { ...previous, active: false, leftAt: Date.now() };
+    await saveMember(client, campaignId, userId, member);
+    return member;
+}
+
 export async function updateMember(
     client,
     campaignId,
