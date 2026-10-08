@@ -32,5 +32,6 @@ export function validateClipUrl(value, platformInput) {
         YouTube: ['youtube', 'youtube shorts', 'shorts', 'yt']
     };
     if (!accepted[platform].includes(input)) return null;
+    if (canonicalUrl.length > 300) return null;
     return { videoUrl: canonicalUrl, platform };
 }
