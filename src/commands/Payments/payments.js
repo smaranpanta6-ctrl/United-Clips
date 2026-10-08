@@ -80,6 +80,9 @@ export default {
         try {
             if (subcommand === 'record') {
                 const creator = interaction.options.getUser('creator', true);
+                if (interaction.options.getString('reference',true).trim().startsWith('auto:')) {
+                    return interaction.editReply({ content: 'References starting with auto: are reserved for video tracking. Use your own unique reference.' });
+                }
                 if (creator.bot || !await interaction.guild.members.fetch(creator.id).catch(() => null)) {
                     return interaction.editReply({ content: 'Choose a creator who belongs to this server.' });
                 }
