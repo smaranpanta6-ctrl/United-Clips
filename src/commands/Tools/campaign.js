@@ -32,6 +32,7 @@ import { campaignBelongsToGuild } from '../../utils/campaignAccess.js';
 import { getSubmissionStats, getSubmission, listUserSubmissions } from '../../services/submissionService.js';
 import { withCampaignLock } from '../../utils/campaignLock.js';
 import { sendDiscordText } from '../../utils/discordMessages.js';
+import { configureTracking, getTrackedStats } from '../../services/clipTrackingService.js';
 
 console.log("🔥 CAMPAIGN COMMAND LOADED 🔥");
 
@@ -68,7 +69,10 @@ async function showMySubmissions(interaction) {
     for (const submission of submissions) {
         const campaign = await getCampaign(interaction.client, submission.campaign_id);
         embed.addFields({ name: `#${submission.id} • ${campaign?.name || 'Campaign'} • ${submission.status}`.slice(0, 256),
-            value: `[Open ${submission.platform} video](${submission.video_url})${submission.rejection_reason ? `\nReason: ${submission.rejection_reason.slice(0, 80)}` : ''}` });
+            value: `[Open ${submission.platform} video](${submission.video_url})${submission.rejection_reason ? `\nReason: ${submission.rejection_reason.slice(0, 80)}` : ''}`
+                + (submission.status === 'approved' ? `\nViews: ${submission.tracked_views === null || submission.tracked_views === undefined ? 'Awaiting check' : Number(submission.tracked_views).toLocaleString('en-US')}` : '')
+                + (submission.last_tracked_at ? ` · Checked <t:${Math.floor(new Date(submission.last_tracked_at).getTime()/1000)}:R>` : '')
+                + (submission.tracking_error ? '\nView count unavailable; last successful count preserved.' : '') });
     }
     return interaction.editReply({ embeds: [embed] });
 }
@@ -197,6 +201,37 @@ async function closeCampaign(interaction) {
         try { await updatePublicCampaignMessage(interaction, latest); }
         catch { refreshed = false; }
         return interaction.editReply({ content: `Closed **${latest.name}**. New joins and submissions are blocked; history and earnings are preserved.${refreshed ? '' : ' The brief buttons could not be refreshed, but the campaign is closed in the database.'}` });
+    });
+}
+
+async function manageTracking(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const state = await configureTracking(interaction.client, interaction.guild.id, {
+        enabled: interaction.options.getBoolean('enabled'), intervalMinutes: interaction.options.getInteger('interval')
+    });
+    return interaction.editReply({ embeds: [new EmbedBuilder().setTitle('TikTok View Tracking').setColor('#5865F2')
+        .setDescription('Tracks approved TikTok clips in active campaigns. Estimated earnings require staff to set the published rate with /campaign terms. This does not send payments.')
+        .addFields(
+            { name: 'Status', value: state.enabled ? 'Enabled' : 'Disabled', inline: true },
+            { name: 'Target interval', value: `${state.interval_minutes} minutes`, inline: true },
+            { name: 'Monthly cap', value: '$5 USD across this bot’s TikTok video tracking', inline: true },
+            { name: 'Used / reserved this month', value: `$${(Number(state.reserved_micros)/1e6).toFixed(3)}`, inline: true },
+            { name: 'Last successful check', value: state.last_success ? `<t:${Math.floor(new Date(state.last_success).getTime()/1000)}:R>` : 'No successful checks yet', inline: true },
+            { name: 'Next planned check', value: state.enabled && state.next_due ? `<t:${Math.floor(new Date(state.next_due).getTime()/1000)}:R>` : 'Tracking is disabled', inline: true })
+        .setFooter({ text: state.last_error || 'Intervals slow down to preserve the budget. Counts reflect the provider’s latest data.' })] });
+}
+
+async function setTrackingTerms(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const channel = interaction.options.getChannel('channel', true);
+    const campaign = (await getAllCampaigns(interaction.client)).find(item => item.channel === channel.id);
+    if (!campaign || !await campaignBelongsToGuild(interaction, campaign)) return interaction.editReply({ content: 'Choose the public brief channel for this campaign.' });
+    return withCampaignLock(interaction.client, campaign.id, async () => {
+        const latest = await getCampaign(interaction.client,campaign.id);
+        latest.trackingTerms = { cpm: interaction.options.getNumber('cpm',true), minimumViews: interaction.options.getInteger('minimum_views',true),
+            maximumPayout: interaction.options.getNumber('maximum_per_clip'), setBy: interaction.user.id, setAt: Date.now() };
+        await saveCampaign(interaction.client,latest.id,latest);
+        return interaction.editReply({ content: `Saved the calculation terms for **${latest.name}**. Use the same USD rate and requirements as the published brief. Future successful checks update estimates for approved TikTok clips; staff-approved or paid earnings are preserved.` });
     });
 }
 
@@ -1507,6 +1542,7 @@ async function handleLeave(interaction, campaign) {
 async function handleStatus(interaction, campaign) {
     await interaction.deferReply({ ephemeral: true });
     const stats = await getSubmissionStats(interaction.client, interaction.guild.id, campaign.id);
+    const tracked = await getTrackedStats(interaction.client, interaction.guild.id, campaign.id);
     campaign = {
         ...campaign, submissions: stats.submitted, approvedSubmissions: stats.approved,
         pendingSubmissions: stats.pending, rejectedSubmissions: stats.rejected
@@ -1582,7 +1618,7 @@ async function handleStatus(interaction, campaign) {
             {
                 name: "👀 Total Views",
                 value: Number(
-                    campaign.views || 0
+                    tracked.views
                 ).toLocaleString("en-US"),
                 inline: true
             },
@@ -1675,13 +1711,8 @@ const rejected = Number(
     stats.rejected || 0
 );
 
-const approvedViews = Number(
-    member.approvedViews || 0
-);
-
-const payout = Number(
-    member.payout || 0
-);
+const tracked = await getTrackedStats(interaction.client, interaction.guild.id, campaign.id, interaction.user.id);
+const approvedViews = tracked.views;
 
 const embed = new EmbedBuilder()
     .setColor("#5865F2")
@@ -1718,14 +1749,14 @@ const embed = new EmbedBuilder()
             inline: true
         },
         {
-            name: "💵 Earnings",
-            value: `$${payout.toFixed(2)}`,
+            name: "💵 Estimated Earnings",
+            value: campaign.trackingTerms ? `$${tracked.estimated.toFixed(2)}` : 'Awaiting staff calculation terms',
             inline: true
         }
     )
     .setFooter({
         text:
-            "Your personal campaign statistics"
+            tracked.checkedAt ? `View counts checked ${new Date(tracked.checkedAt).toISOString()}` : 'No successful video view checks yet'
     })
     .setTimestamp();
 
@@ -1770,7 +1801,15 @@ export default {
         .addSubcommand(subcommand => subcommand.setName('submissions').setDescription('View your own recent submissions and review decisions'))
         .addSubcommand(subcommand => subcommand.setName('panel').setDescription('Publish the creator hub in this channel'))
         .addSubcommand(subcommand => subcommand.setName('close').setDescription('Close joins and submissions while preserving history')
-            .addChannelOption(option => option.setName('channel').setDescription('Public campaign brief channel').addChannelTypes(ChannelType.GuildText).setRequired(true))),
+            .addChannelOption(option => option.setName('channel').setDescription('Public campaign brief channel').addChannelTypes(ChannelType.GuildText).setRequired(true)))
+        .addSubcommand(sub => sub.setName('tracking').setDescription('Configure TikTok view tracking within the $5 monthly cap')
+            .addBooleanOption(o=>o.setName('enabled').setDescription('Enable or disable TikTok view tracking'))
+            .addIntegerOption(o=>o.setName('interval').setDescription('Target refresh interval in minutes; slows to preserve budget').setMinValue(5).setMaxValue(120)))
+        .addSubcommand(sub => sub.setName('terms').setDescription('Set reviewed calculation terms from the published campaign brief')
+            .addChannelOption(o=>o.setName('channel').setDescription('Public campaign brief channel').addChannelTypes(ChannelType.GuildText).setRequired(true))
+            .addNumberOption(o=>o.setName('cpm').setDescription('Published USD rate per 1,000 views').setMinValue(0).setMaxValue(10000).setRequired(true))
+            .addIntegerOption(o=>o.setName('minimum_views').setDescription('Published minimum views per clip (0 if none)').setMinValue(0).setRequired(true))
+            .addNumberOption(o=>o.setName('maximum_per_clip').setDescription('Published maximum USD payout per clip; omit if none').setMinValue(0).setMaxValue(9999999999.99))),
 
     async execute(interaction) {
         const subcommand =
@@ -1795,6 +1834,8 @@ export default {
         if (subcommand === 'review') return recoverSubmissionPanel(interaction);
         if (subcommand === 'panel') return publishCreatorPanel(interaction);
         if (subcommand === 'close') return closeCampaign(interaction);
+        if (subcommand === 'tracking') return manageTracking(interaction);
+        if (subcommand === 'terms') return setTrackingTerms(interaction);
         if (subcommand !== 'create') return;
 
         const audioFile =
