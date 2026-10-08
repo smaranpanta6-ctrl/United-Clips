@@ -9,25 +9,15 @@ import {
 import { getColor } from "../../config/bot.js";
 
 import {
-    createSubmission
+    createSubmission,
+    DuplicateSubmissionError
 } from "../../services/submissionService.js";
 
 import {
     getCampaign
 } from "../../utils/database.js";
-
-function isValidUrl(value) {
-    try {
-        const url = new URL(value);
-
-        return (
-            url.protocol === "https:" ||
-            url.protocol === "http:"
-        );
-    } catch {
-        return false;
-    }
-}
+import { validateClipUrl } from '../../utils/clipValidation.js';
+import { submissionAccessError } from '../../utils/campaignAccess.js';
 
 export default {
     name: "submit_clip_modal",
@@ -65,7 +55,8 @@ export default {
                     )
                     .trim();
 
-            if (!isValidUrl(videoUrl)) {
+            const clip = validateClipUrl(videoUrl, platform);
+            if (!clip) {
                 return interaction.editReply({
                     embeds: [
                         new EmbedBuilder()
@@ -73,7 +64,7 @@ export default {
                                 "❌ Invalid Video Link"
                             )
                             .setDescription(
-                                "Enter a valid TikTok, Instagram, or YouTube video URL."
+                                "Use an HTTPS TikTok, Instagram, or YouTube video link and select its matching platform. Profile links cannot be submitted."
                             )
                             .setColor(
                                 getColor("error")
@@ -95,6 +86,9 @@ export default {
                 });
             }
 
+            const accessError = await submissionAccessError(interaction, client, campaign);
+            if (accessError) return interaction.editReply({ content: accessError });
+
             const submission =
                 await createSubmission(client, {
                     guildId:
@@ -105,32 +99,19 @@ export default {
                     userId:
                         interaction.user.id,
 
-                    videoUrl,
+                    videoUrl: clip.videoUrl,
 
-                    platform,
+                    platform: clip.platform,
 
                     notes:
                         notes || null
                 });
 
-            campaign.submissions =
-                Number(campaign.submissions || 0) + 1;
-            campaign.pendingSubmissions =
-                Number(campaign.pendingSubmissions || 0) + 1;
-
-            const { saveCampaign } =
-                await import("../../utils/database.js");
-
-            await saveCampaign(
-                client,
-                campaign.id,
-                campaign
-            );
-
             /*
              * Send the submission to the campaign's
              * private staff review channel.
              */
+            let reviewDelivered = false;
             try {
                 let staffReviewChannel = null;
 
@@ -279,6 +260,7 @@ export default {
                         embeds: [reviewEmbed],
                         components: [reviewButtons]
                     });
+                    reviewDelivered = true;
                 } else {
                     console.error(
                         `Staff review channel not found for campaign ${campaignId}.`
@@ -298,7 +280,9 @@ export default {
                             "✅ Clip Submitted"
                         )
                         .setDescription(
-                            "Your clip was submitted successfully and is waiting for staff review."
+                            reviewDelivered
+                                ? "Your clip is saved and has been sent to staff for review."
+                                : "Your clip is saved, but the staff review panel could not be delivered. Open a support ticket with your submission ID so staff can recover it. Do not submit it again."
                         )
                         .addFields(
                             {
@@ -336,6 +320,11 @@ export default {
                 ]
             });
         } catch (error) {
+            if (error instanceof DuplicateSubmissionError) {
+                return interaction.editReply({
+                    content: `This clip is already submission #${error.submission.id} (${error.submission.status}). Check My Stats for your submission status.`
+                });
+            }
             console.error(
                 "Clip submission failed:",
                 error
