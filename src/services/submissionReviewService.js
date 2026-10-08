@@ -8,8 +8,7 @@ import {
 } from "discord.js";
 
 import {
-    getCampaign,
-    saveCampaign
+    getCampaign
 } from "../utils/database.js";
 
 import {
@@ -359,7 +358,8 @@ export async function finalizeSubmissionReview({
 
     const submission = await getSubmission(
         client,
-        submissionId
+        submissionId,
+        interaction.guildId || interaction.guild?.id
     );
 
     if (!submission) {
@@ -387,6 +387,8 @@ export async function finalizeSubmissionReview({
 
     const reviewed = await reviewSubmission(client, {
         submissionId,
+        guildId: interaction.guildId || interaction.guild?.id,
+        expectedStatus: submission.status,
         status: normalizedStatus,
         reviewedBy: interaction.user.id,
         rejectionReason:
@@ -399,7 +401,7 @@ export async function finalizeSubmissionReview({
     if (!reviewed) {
         await safelyRespond(interaction, {
             content:
-                "❌ The submission could not be updated."
+                "Another staff member already changed this submission. Refresh the review panel and try again."
         });
 
         return null;
@@ -411,18 +413,6 @@ export async function finalizeSubmissionReview({
     );
 
     if (campaign) {
-        updateCampaignCounters({
-            campaign,
-            previousStatus,
-            newStatus: normalizedStatus
-        });
-
-        await saveCampaign(
-            client,
-            campaign.id,
-            campaign
-        );
-
         if (campaign.googleSheetId) {
             try {
                 const creator =

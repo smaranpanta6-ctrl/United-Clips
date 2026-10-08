@@ -1,5 +1,25 @@
 # TitanBot - Ultimate Discord Bot
 
+## United Clips creator workflow
+
+United Clips extends this MIT-licensed bot with campaign workspaces, clip submissions, staff review, and private payout settings.
+
+Creator commands:
+- `/campaign browse`: list active campaign briefs in this server.
+- `/campaign submissions`: view your latest ten submissions and review decisions privately.
+
+Campaign team commands (requires Manage Server or `STAFF_ROLE_ID`):
+- `/campaign create`: publish a campaign using its explicit brief, platform, rate, and requirements.
+- `/campaign panel`: publish and pin the Creator Hub in the current channel. Run it once in the start channel.
+- `/campaign review submission:<id>`: recover a saved submission's review buttons in its private campaign review channel.
+- `/campaign organize`: apply the United Clips channel names and move legacy uncategorized workspaces while preserving channel IDs, messages, and permission overwrites. Safe to repeat.
+
+Set `STAFF_ROLE_ID` and `ACTIVE_CATEGORY_ID` in Railway variables when using a different layout. United Clips defaults are `1529961495402778771` and `1531525611057582182`. Keep one bot replica: campaign workspace changes are serialized within a process. Clip deduplication and conflicting review decisions also use PostgreSQL transactions.
+
+PostgreSQL is required for clip submissions and payout records. Payout tables receive additive, idempotent upgrades when used, including missing legacy profile columns. The core key-value database retains its baseline schema version. Run `npm test` for embedded PostgreSQL tests covering persistence, duplicate clips, guild isolation, review decisions, membership, and Discord message limits. CI also runs `npm audit --omit=dev --audit-level=high`.
+
+The bot currently displays **recorded** views and earnings. An approved clip does not fetch platform views or transfer money. Connect a supported tracking/payment service before advertising automated CPM earnings or automatic payouts. Google Sheets is an optional mirror; PostgreSQL remains the submission record when a sheet or notification fails.
+
 **TitanBot** is a powerful, feature-rich Discord bot designed to enhance your server experience with comprehensive moderation tools, engaging economy systems, utility features, and much more. Built with modern Discord.js v14 and PostgreSQL for optimal performance and data persistence.
 
 [![Support Server](https://img.shields.io/badge/-Support%20Server-%235865F2?logo=discord&logoColor=white&style=flat-square&logoWidth=20)](https://discord.gg/8kJBYhTGW9)

@@ -1205,7 +1205,10 @@ export async function saveCampaign(client, id, data) {
 }
 
 export async function getCampaign(client, id) {
-    return await client.db.get(`${CAMPAIGN_PREFIX}${id}`, null);
+    const campaign = await client.db.get(`${CAMPAIGN_PREFIX}${id}`, null);
+    if (!campaign) return null;
+    const { campaignDetails } = await import('./campaignDetails.js');
+    return campaignDetails(campaign);
 }
 
 export async function deleteCampaign(client, id) {

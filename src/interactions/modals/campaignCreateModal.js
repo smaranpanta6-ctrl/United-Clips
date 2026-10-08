@@ -13,7 +13,11 @@ import {
     createCampaignSpreadsheet,
     getGoogleErrorSummary
 } from "../../utils/googleSheets.js";
-const ACTIVE_CATEGORY_ID = "1531525611057582182";
+const ACTIVE_CATEGORY_ID = process.env.ACTIVE_CATEGORY_ID || "1531525611057582182";
+import { campaignDetails } from '../../utils/campaignDetails.js';
+import { withCampaignLock } from '../../utils/campaignLock.js';
+import { sendDiscordText } from '../../utils/discordMessages.js';
+import { PermissionFlagsBits } from 'discord.js';
 import {
     getCampaignDMSubscribers
 } from "../../utils/campaignNotifications.js";
@@ -96,7 +100,7 @@ function buildCampaignButtons(campaign) {
             .setCustomId(
                 `campaign_status_${campaign.id}`
             )
-            .setLabel("View Live Details")
+            .setLabel("Campaign Details")
             .setEmoji("📊")
             .setStyle(ButtonStyle.Primary),
 
@@ -112,9 +116,9 @@ function buildCampaignButtons(campaign) {
             .setCustomId(
                 `campaign_notify_${campaign.id}`
             )
-            .setLabel("TURN ON CAMPAIGN ALERTS")
+            .setLabel("Campaign Alerts")
             .setEmoji("🚨")
-            .setStyle(ButtonStyle.Danger)
+            .setStyle(ButtonStyle.Secondary)
     );
 }
 function wait(milliseconds) {
@@ -147,7 +151,7 @@ async function notifyCampaignSubscribers(
             const user =
                 await client.users.fetch(userId);
 
-            await user.send({
+            await sendDiscordText(user, {
                 content: [
                     `## 💸 New Campaign: ${campaign.name}`,
                     "",
@@ -209,6 +213,11 @@ export default {
         });
 
         try {
+            const staffRoleId = process.env.STAFF_ROLE_ID || '1529961495402778771';
+            if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)
+                && !interaction.member?.roles?.cache?.has(staffRoleId)) {
+                return interaction.editReply({ content: 'Only staff can create campaigns.' });
+            }
             const draftKey =
                 `${interaction.guild.id}:${interaction.user.id}`;
 
@@ -276,8 +285,9 @@ const description =
                     parent: activeCategory.id
                 });
 
-         const campaign = {
+         const campaign = campaignDetails({
     id,
+    guildId: interaction.guild.id,
     name,
     client: campaignClient,
 
@@ -304,24 +314,18 @@ const description =
     views: 0,
     paid: 0,
     status: "Active"
-};
+});
             
 // Post the public campaign immediately.
 // Google Sheets must not delay or prevent this message.
 const messagePayload = {
-    content: [
-        "@everyone",
-        "",
-        buildCampaignContent(campaign)
-    ].join("\n"),
+    content: buildCampaignContent(campaign),
 
     components: [
         buildCampaignButtons(campaign)
     ],
 
-    allowedMentions: {
-        parse: ["everyone"]
-    }
+    allowedMentions: { parse: [] }
 };
 
 if (campaign.audioFile?.url) {
@@ -336,10 +340,13 @@ if (campaign.audioFile?.url) {
 }
 
 const publicMessage =
-    await campaignChannel.send(messagePayload);
+    await sendDiscordText(campaignChannel, messagePayload);
 
 campaign.publicMessageId =
     publicMessage.id;
+
+// Persist before optional services and notifications so Join works immediately.
+await saveCampaign(client, id, campaign);
 
 await notifyCampaignSubscribers(
     client,
@@ -353,13 +360,6 @@ await notifyCampaignSubscribers(
         error
     );
 });
-// Save the campaign immediately after creating the Discord post.
-await saveCampaign(
-    client,
-    id,
-    campaign
-);
-
 // Try Google Sheets separately.
 try {
     const googleSheet =
@@ -380,11 +380,15 @@ try {
     campaign.googleSheetUrl = null;
 }
 
-await saveCampaign(
-    client,
-    id,
-    campaign
-);
+await withCampaignLock(client, id, async () => {
+    const { getCampaign } = await import('../../utils/database.js');
+    const latest = await getCampaign(client, id);
+    await saveCampaign(client, id, {
+        ...latest,
+        googleSheetId: campaign.googleSheetId,
+        googleSheetUrl: campaign.googleSheetUrl
+    });
+});
 
             const responseLines = [
     "✅ Campaign created successfully.",

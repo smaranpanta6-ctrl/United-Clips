@@ -18,12 +18,21 @@ export async function ensurePaymentTables(client) {
         CREATE TABLE IF NOT EXISTS payment_methods (
             guild_id TEXT NOT NULL,
             user_id TEXT NOT NULL,
+            username TEXT,
+            display_name TEXT,
             provider TEXT NOT NULL DEFAULT 'paypal',
             account_email TEXT NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             PRIMARY KEY (guild_id, user_id, provider)
         )
+    `);
+
+    // Existing installations may already have the original, smaller table.
+    await pool.query(`
+        ALTER TABLE payment_methods
+        ADD COLUMN IF NOT EXISTS username TEXT,
+        ADD COLUMN IF NOT EXISTS display_name TEXT
     `);
 
     await pool.query(`
