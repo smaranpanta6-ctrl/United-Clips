@@ -108,6 +108,18 @@ export async function syncCampaignPayoutSheet(client, campaign, campaigns, { cli
     if (existing[0]?.[1] && existing[0][1] !== 'Discord User ID') throw new Error('Payouts headers changed; sync stopped to preserve staff data.');
     await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: campaign.googleSheetId,
         requestBody: { valueInputOption: 'RAW', data: payoutWriteData(existing, rows, new Date().toISOString()) } });
+    if (existing[0]?.[8] !== 'PayPal Email') {
+        const sheetId = payoutSheet.properties.sheetId;
+        await sheets.spreadsheets.batchUpdate({ spreadsheetId: campaign.googleSheetId, requestBody: { requests: [
+            { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 1, frozenColumnCount: 2 } }, fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount' } },
+            { repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 18 },
+                cell: { userEnteredFormat: { wrapStrategy: 'WRAP', backgroundColor: { red: 0.94, green: 0.94, blue: 0.94 }, textFormat: { bold: true } } }, fields: 'userEnteredFormat(wrapStrategy,backgroundColor,textFormat.bold)' } },
+            { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 5 }, properties: { pixelSize: 180 }, fields: 'pixelSize' } },
+            { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 8, endIndex: 18 }, properties: { pixelSize: 180 }, fields: 'pixelSize' } },
+            { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 17, endIndex: 18 }, properties: { pixelSize: 360 }, fields: 'pixelSize' } },
+            { updateDimensionProperties: { range: { sheetId, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 50 }, fields: 'pixelSize' } }
+        ] } });
+    }
     cache.set(campaign.id, fingerprint);
     return true;
 }
@@ -183,6 +195,11 @@ async function refreshCreatorButtons(client, guild, campaign) {
             return data;
         });
         await message.edit({ components, embeds, allowedMentions: { parse: [] } });
+    }
+    if (campaign.status === 'Closed' && guild.id === '1529960735390826536') {
+        const archive = await guild.channels.fetch('1557639878005497877').catch(() => null);
+        const brief = await guild.channels.fetch(campaign.channel).catch(() => null);
+        if (archive && brief && brief.parentId !== archive.id) await brief.setParent(archive.id, { lockPermissions: false, reason: 'Archive ended campaign and preserve history' });
     }
 }
 
