@@ -409,14 +409,6 @@ const button = client.buttons.get(customId);
         );
     }
 
-          try {
-            await selectMenu.execute(interaction, client, args);
-          } catch (error) {
-            await handleInteractionError(interaction, error, withTraceContext({
-              type: 'select_menu',
-              customId: interaction.customId
-            }, interactionTraceContext));
-          }
         } else if (interaction.isModalSubmit()) {
           if (interaction.customId.startsWith('app_modal_')) {
             try {
