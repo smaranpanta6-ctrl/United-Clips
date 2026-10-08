@@ -33,6 +33,7 @@ import { getSubmissionStats, getSubmission, listUserSubmissions } from '../../se
 import { withCampaignLock } from '../../utils/campaignLock.js';
 import { sendDiscordText } from '../../utils/discordMessages.js';
 import { configureTracking, getTrackedStats } from '../../services/clipTrackingService.js';
+import { buildCampaignRules } from '../../utils/campaignRules.js';
 
 console.log("🔥 CAMPAIGN COMMAND LOADED 🔥");
 
@@ -568,64 +569,6 @@ function buildAnnouncementMessage(campaign) {
     ].join("\n");
 }
 
-function buildRulesMessage(campaign) {
-    const lines = [
-        "# ❌ Rules:",
-        "",
-        "• Must be audible at all times, including during the intro.",
-        "• Must have at least 7 seconds of the edit using only the required song.",
-        "• Content must be original and of appropriate quality.",
-        "• No controversial, hateful, illegal or offensive topics.",
-        "• The song must be clearly audible for at least 7 seconds.",
-        "• Do not talk badly about the artist or client.",
-        "• Do not portray the artist or client negatively.",
-        "• The sound must be used intentionally.",
-        "• Do not use only a few seconds of the sound in a long video.",
-        "• The video must use the actual required sound.",
-        "• Do not slow down, speed up or replace the required sound.",
-        "• Do not promote other artists unless the brief permits it.",
-        "• No engagement baiting submissions.",
-        "• No fake views, bots, paid engagement or manipulated traffic.",
-        "• No background-audio-only edits where the edit never appears.",
-        "• Do not submit stolen, copied or reposted content.",
-        "• Do not submit videos already commissioned by another clipping server.",
-        "• Do not submit the same video more than once.",
-        "• The video must remain public until the campaign has paid.",
-        "• Staff may reject any submission that does not meet campaign quality standards.",
-        "",
-        "*Posts must stay up until the campaign has paid, or you may not receive payment.*",
-        "",
-        "**Brief:**",
-        "",
-        formatBriefForWorkspace(
-            campaign.brief
-        )
-    ];
-
-    if (campaign.audioLink) {
-        lines.push(
-            "",
-            "## 🚨 Use this sound when posting, or you may not get paid:",
-            "",
-            "the required sound at 7% volume or higher or if the required sound is missing/muted/replaced, the submission may be rejected.",
-            "",
-            "**SOUND LINK TO USE:**",
-            campaign.audioLink
-        );
-    }
-
-    if (campaign.audioFile?.url) {
-        lines.push(
-            "",
-            "## 🔊 Audio Download",
-            "",
-            "*You may use any part, but make sure the required sound is attached when posting.*"
-        );
-    }
-
-    return lines.join("\n");
-}
-
 function buildChatMessage(campaign) {
     return [
         `# 💬 ${campaign.name} Chat`,
@@ -850,8 +793,7 @@ if (channelName === "🛡️-staff-review") {
 }
     if (rulesChannel) {
     const rulesPayload = {
-        content:
-            buildRulesMessage(campaign)
+        embeds: [buildCampaignRules(campaign)]
     };
 
     if (campaign.audioFile?.url) {
