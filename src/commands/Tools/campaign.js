@@ -179,6 +179,27 @@ async function recoverSubmissionPanel(interaction) {
     return interaction.editReply({ content: `Recovered submission #${id} in <#${channel.id}>.` });
 }
 
+async function closeCampaign(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const channel = interaction.options.getChannel('channel', true);
+    const campaigns = await getAllCampaigns(interaction.client);
+    const campaign = campaigns.find(item => item.channel === channel.id);
+    if (!campaign || !await campaignBelongsToGuild(interaction, campaign)) {
+        return interaction.editReply({ content: 'Choose this campaign’s public brief channel.' });
+    }
+    return withCampaignLock(interaction.client, campaign.id, async () => {
+        const latest = await getCampaign(interaction.client, campaign.id);
+        latest.status = 'Closed';
+        latest.closedAt = Date.now();
+        latest.closedBy = interaction.user.id;
+        await saveCampaign(interaction.client, latest.id, latest);
+        let refreshed = true;
+        try { await updatePublicCampaignMessage(interaction, latest); }
+        catch { refreshed = false; }
+        return interaction.editReply({ content: `Closed **${latest.name}**. New joins and submissions are blocked; history and earnings are preserved.${refreshed ? '' : ' The brief buttons could not be refreshed, but the campaign is closed in the database.'}` });
+    });
+}
+
 function memberCount(campaign) {
     return Array.isArray(campaign.members)
         ? campaign.members.length
@@ -1740,13 +1761,16 @@ export default {
                         .setMaxLength(1000)
                         .setRequired(false)
                 )
+                .addBooleanOption(option => option.setName('notify_members').setDescription('Send alerts to subscribed creators (default: true)'))
         )
         .addSubcommand(subcommand => subcommand.setName('organize').setDescription('Organize the United Clips channel names and layout'))
         .addSubcommand(subcommand => subcommand.setName('review').setDescription('Recover a saved submission panel in its private staff channel')
             .addIntegerOption(option => option.setName('submission').setDescription('Submission ID to recover').setMinValue(1).setRequired(true)))
         .addSubcommand(subcommand => subcommand.setName('browse').setDescription('Browse active campaigns in this server'))
         .addSubcommand(subcommand => subcommand.setName('submissions').setDescription('View your own recent submissions and review decisions'))
-        .addSubcommand(subcommand => subcommand.setName('panel').setDescription('Publish the creator hub in this channel')),
+        .addSubcommand(subcommand => subcommand.setName('panel').setDescription('Publish the creator hub in this channel'))
+        .addSubcommand(subcommand => subcommand.setName('close').setDescription('Close joins and submissions while preserving history')
+            .addChannelOption(option => option.setName('channel').setDescription('Public campaign brief channel').addChannelTypes(ChannelType.GuildText).setRequired(true))),
 
     async execute(interaction) {
         const subcommand =
@@ -1762,7 +1786,7 @@ export default {
         ) {
             return interaction.reply({
                 content:
-                    "❌ Only staff can create campaigns.",
+                    "❌ Only staff can manage campaigns.",
                 ephemeral: true
             });
         }
@@ -1770,6 +1794,7 @@ export default {
         if (subcommand === 'organize') return organizeUnitedClips(interaction);
         if (subcommand === 'review') return recoverSubmissionPanel(interaction);
         if (subcommand === 'panel') return publishCreatorPanel(interaction);
+        if (subcommand === 'close') return closeCampaign(interaction);
         if (subcommand !== 'create') return;
 
         const audioFile =
@@ -1803,6 +1828,8 @@ export default {
 
                 audioLink:
                     audioLink?.trim() || null,
+
+                notifyMembers: interaction.options.getBoolean('notify_members') !== false,
 
                 createdAt: Date.now()
             }
